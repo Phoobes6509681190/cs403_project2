@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --line: #e5e7eb;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --faint: #94a3b8;
+  --brand: #2563eb;
+  --brand-soft: #eff6ff;
+  --brand-ink: #1d4ed8;
+  --ok: #16a34a;
+  --ok-soft: #dcfce7;
+  --bad: #dc2626;
+  --bad-soft: #fee2e2;
+  --warn: #ea580c;
+  --warn-soft: #ffedd5;
+  --gone: #64748b;
+  --gone-soft: #e2e8f0;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b1120;
+    --surface: #111a2e;
+    --surface2: #16203a;
+    --line: #25304a;
+    --ink: #e8edf7;
+    --muted: #9aa8c2;
+    --faint: #6b7a99;
+    --brand: #60a5fa;
+    --brand-soft: #17263f;
+    --brand-ink: #93c5fd;
+    --ok: #4ade80;
+    --ok-soft: #10301f;
+    --bad: #f87171;
+    --bad-soft: #3a1717;
+    --warn: #fb923c;
+    --warn-soft: #3a2312;
+    --gone: #94a3b8;
+    --gone-soft: #1f2940;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b1120;
+  --surface: #111a2e;
+  --surface2: #16203a;
+  --line: #25304a;
+  --ink: #e8edf7;
+  --muted: #9aa8c2;
+  --faint: #6b7a99;
+  --brand: #60a5fa;
+  --brand-soft: #17263f;
+  --brand-ink: #93c5fd;
+  --ok: #4ade80;
+  --ok-soft: #10301f;
+  --bad: #f87171;
+  --bad-soft: #3a1717;
+  --warn: #fb923c;
+  --warn-soft: #3a2312;
+  --gone: #94a3b8;
+  --gone-soft: #1f2940;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.scroll-x {
+  overflow-x: auto;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
