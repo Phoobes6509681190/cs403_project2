@@ -1,4 +1,6 @@
-const inspectionSchema = new mongoose.Schema(
+const mongoose = require("mongoose");
+
+const inspectionItemSchema = new mongoose.Schema(
   {
     asset: {
       type: mongoose.Schema.Types.ObjectId,
@@ -6,33 +8,75 @@ const inspectionSchema = new mongoose.Schema(
       required: true
     },
 
-    inspector: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-
-    condition: {
+    status: {
       type: String,
-      enum: [
-        "good",
-        "fair",
-        "damaged",
-        "missing"
-      ],
-      required: true
+      enum: ["normal", "damaged", "lost", "disposed"],
     },
 
     note: {
-      type: String
+      type: String,
+      trim: true
+    },
+
+    inspectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
     },
 
     inspectedAt: {
-      type: Date,
-      default: Date.now
+      type: Date
+    }
+  },
+  {
+    _id: true
+  }
+);
+
+const inspectionSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    fiscalYear: {
+      type: String,
+      required: true
+    },
+
+    status: {
+      type: String,
+      enum: ["draft", "in_progress", "closed"],
+      default: "draft"
+    },
+
+    committee: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ],
+
+    items: [inspectionItemSchema],
+
+    startedAt: {
+      type: Date
+    },
+
+    closedAt: {
+      type: Date
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
     }
   },
   {
     timestamps: true
   }
 );
+
+module.exports = mongoose.model("Inspection", inspectionSchema);

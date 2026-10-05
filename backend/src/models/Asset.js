@@ -36,6 +36,16 @@ const assetSchema = new mongoose.Schema(
       min: 0
     },
 
+    budgetSource: {
+      type: String,
+      trim: true
+    },
+
+    originalBudgetSource: {
+      type: String,
+      trim: true
+    },
+
     status: {
       type: String,
       enum: [
@@ -45,6 +55,11 @@ const assetSchema = new mongoose.Schema(
         "disposed"
       ],
       default: "normal"
+    },
+
+    originalStatus: {
+    type: String,
+    trim: true
     },
 
     description: {
