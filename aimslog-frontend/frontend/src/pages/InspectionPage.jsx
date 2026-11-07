@@ -14,7 +14,7 @@ import { nf } from '../utils/format'
 const BIG_ACTIONS = [
   { key: 'ok', label: 'ปกติ', cls: 'bg-oksoft text-ok border-ok/30 hover:bg-ok hover:text-white' },
   { key: 'broken', label: 'ชำรุด', cls: 'bg-badsoft text-bad border-bad/30 hover:bg-bad hover:text-white' },
-  { key: 'repair', label: 'รอซ่อม', cls: 'bg-warnsoft text-warn border-warn/30 hover:bg-warn hover:text-white' },
+  { key: 'unneeded', label: 'หมดความจำเป็น', cls: 'bg-warnsoft text-warn border-warn/30 hover:bg-warn hover:text-white' },
   { key: 'missing', label: 'ไม่พบ', cls: 'bg-gonesoft text-gone border-gone/30 hover:bg-gone hover:text-white' },
 ]
 

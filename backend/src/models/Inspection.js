@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+
 const inspectionSchema = new mongoose.Schema(
   {
     asset: {
@@ -36,3 +38,6 @@ const inspectionSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+// TODO สัปดาห์ 2: แยกเป็น Inspection (รอบ) + InspectionItem (ผลรายชิ้น)
+module.exports = mongoose.model("Inspection", inspectionSchema);

@@ -41,7 +41,7 @@ export default function Dashboard() {
         <StatCard label="ทั้งหมด" value={total} sub="รายการในระบบ" />
         <StatCard label="ปกติ" value={byStatus.ok || 0} sub={`${pct(byStatus.ok, total)}% ของทั้งหมด`} color="var(--ok)" />
         <StatCard label="ชำรุด" value={byStatus.broken || 0} sub={`${pct(byStatus.broken, total)}% ของทั้งหมด`} color="var(--bad)" />
-        <StatCard label="รอดำเนินการซ่อม" value={byStatus.repair || 0} sub={`${pct(byStatus.repair, total)}% ของทั้งหมด`} color="var(--warn)" />
+        <StatCard label="หมดความจำเป็น" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}% ของทั้งหมด`} color="var(--warn)" />
         <StatCard label="ไม่พบครุภัณฑ์" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}% ของทั้งหมด`} color="var(--gone)" />
       </div>
 

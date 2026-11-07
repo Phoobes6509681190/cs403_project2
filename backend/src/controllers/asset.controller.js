@@ -1,232 +1,155 @@
+const mongoose = require("mongoose");
 const Asset = require("../models/Asset");
 const AssetHistory = require("../models/AssetHistory");
+const { STATUS_KEYS } = require("../constants/status");
+const escapeRegex = require("../utils/escapeRegex");
+const { getBudgetMap, budgetNameFromCode } = require("../services/budget.service");
+const { toAssetDto, fromAssetInput, toHistoryDto } = require("../services/assetDto");
 
-// GET /api/assets
+const fail = (res, code, message) => res.status(code).json({ success: false, message });
+const isId = (id) => mongoose.isValidObjectId(id);
+const actor = (req) => ({ changedBy: req.user?.userId, changedByName: req.user?.name || req.user?.username });
+
+// ฟิลด์ที่บันทึกประวัติ (ตอบโจทย์ "ของย้ายไปไหน ใครถือ")
+const TRACKED = [
+  ["status", (a) => a.status],
+  ["location", (a) => a.location?.label || ""],
+  ["holderName", (a) => a.holderName || ""]
+];
+
+function applyInput(asset, input) {
+  const { locationLabel, location, ...rest } = input;
+  Object.assign(asset, rest);
+  if (location) asset.location = location;
+  else if (locationLabel !== undefined) {
+    // แก้จากช่อง "สถานที่" ช่องเดียวในฟอร์ม — ล้างค่าแยกส่วนเดิมที่อาจไม่ตรงแล้ว
+    asset.location = { label: locationLabel };
+  }
+}
+
+// GET /api/assets?q=&status=&room=&budget=&page=1&perPage=10
 exports.getAssets = async (req, res) => {
   try {
-    const assets = await Asset.find({
-      isDeleted: false
-    }).sort({ createdAt: -1 });
+    const { q, status, room, budget, holder } = req.query;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const perPage = Math.min(200, Math.max(1, parseInt(req.query.perPage, 10) || 20));
+
+    const filter = { isDeleted: false };
+    if (status && STATUS_KEYS.includes(status)) filter.status = status;
+    if (room) filter["location.label"] = String(room);
+    if (budget) filter.budget = String(budget);
+    if (holder) filter.holderName = String(holder);
+    if (q && String(q).trim()) {
+      const re = new RegExp(escapeRegex(String(q).trim()), "i");
+      filter.$or = [
+        { assetCode: re }, { name: re }, { brand: re }, { model: re },
+        { holderName: re }, { "location.label": re }
+      ];
+    }
+
+    const [items, total, rooms, budgets] = await Promise.all([
+      Asset.find(filter).sort({ "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
+        .skip((page - 1) * perPage).limit(perPage).lean(),
+      Asset.countDocuments(filter),
+      Asset.distinct("location.label", { isDeleted: false }),
+      Asset.distinct("budget", { isDeleted: false })
+    ]);
 
     res.json({
       success: true,
-      count: assets.length,
-      data: assets
+      items: items.map(toAssetDto),
+      total,
+      page,
+      perPage,
+      rooms: rooms.filter(Boolean).sort(),
+      budgets: budgets.filter(Boolean).sort()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    fail(res, 500, error.message);
   }
 };
 
+// GET /api/assets/:id
+exports.getAsset = async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    const asset = await Asset.findOne({ _id: req.params.id, isDeleted: false }).lean();
+    if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    res.json(toAssetDto(asset));
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
 
-// POST /api/assets
+// POST /api/assets (admin)
 exports.createAsset = async (req, res) => {
   try {
-    const asset = await Asset.create(req.body);
-
-    res.status(201).json({
-      success: true,
-      message: "Asset created successfully",
-      data: asset
-    });
+    const input = fromAssetInput(req.body);
+    const asset = new Asset();
+    applyInput(asset, input);
+    if (!asset.budget || asset.budget === "ไม่ระบุ") {
+      asset.budget = budgetNameFromCode(asset.assetCode, await getBudgetMap()) || "ไม่ระบุ";
+    }
+    await asset.save();
+    await AssetHistory.create({ asset: asset._id, action: "create", ...actor(req) });
+    res.status(201).json(toAssetDto(asset));
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    fail(res, 400, error.message);
   }
 };
 
-
-// PUT /api/assets/:id
+// PUT /api/assets/:id (admin)
 exports.updateAsset = async (req, res) => {
   try {
-    const asset = await Asset.findOne({
-      _id: req.params.id,
-      isDeleted: false
-    });
+    if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    const asset = await Asset.findOne({ _id: req.params.id, isDeleted: false });
+    if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
 
-    if (!asset) {
-      return res.status(404).json({
-        success: false,
-        message: "Asset not found"
-      });
+    const before = TRACKED.map(([f, get]) => [f, get(asset)]);
+    const input = fromAssetInput(req.body);
+    applyInput(asset, input);
+    if (input.assetCode !== undefined && input.budget === undefined) {
+      asset.budget = budgetNameFromCode(asset.assetCode, await getBudgetMap()) || asset.budget;
     }
-
-    const changes = [];
-
-    const fieldsToTrack = [
-      "status",
-      "location",
-      "responsiblePerson"
-    ];
-
-    fieldsToTrack.forEach((field) => {
-      if (
-        req.body[field] !== undefined &&
-        req.body[field] !== asset[field]
-      ) {
-        changes.push({
-          field,
-          oldValue: asset[field],
-          newValue: req.body[field]
-        });
-      }
-    });
-
-    Object.assign(asset, req.body);
-
     await asset.save();
 
-    // บันทึก History เฉพาะเมื่อมีการเปลี่ยนแปลง
-    if (changes.length > 0) {
-      await AssetHistory.create({
-        asset: asset._id,
-        changedBy:
-          req.body.changedBy || "Unknown",
-        changes
-      });
+    const changes = before
+      .map(([field, oldValue], i) => ({ field, oldValue, newValue: TRACKED[i][1](asset) }))
+      .filter((c) => c.oldValue !== c.newValue);
+    if (changes.length) {
+      await AssetHistory.create({ asset: asset._id, action: "update", changes, ...actor(req) });
     }
 
-    res.json({
-      success: true,
-      message: "Asset updated successfully",
-      data: asset
-    });
+    res.json(toAssetDto(asset));
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    fail(res, 400, error.message);
   }
 };
 
-
-// DELETE /api/assets/:id
+// DELETE /api/assets/:id (admin) — soft delete
 exports.deleteAsset = async (req, res) => {
   try {
-    const asset = await Asset.findOne({
-      _id: req.params.id,
-      isDeleted: false
-    });
-
-    if (!asset) {
-      return res.status(404).json({
-        success: false,
-        message: "Asset not found"
-      });
-    }
-
-    asset.isDeleted = true;
-
-    await asset.save();
-
-    res.json({
-      success: true,
-      message: "Asset deleted successfully"
-    });
+    if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    const asset = await Asset.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: false },
+      { isDeleted: true },
+      { returnDocument: "after" }
+    );
+    if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    await AssetHistory.create({ asset: asset._id, action: "delete", ...actor(req) });
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    fail(res, 500, error.message);
   }
 };
-
-
-// GET /api/assets/search
-exports.searchAssets = async (req, res) => {
-  try {
-    const { q } = req.query;
-
-    if (!q) {
-      return res.status(400).json({
-        success: false,
-        message: "Search keyword is required"
-      });
-    }
-
-    const assets = await Asset.find({
-      isDeleted: false,
-      $or: [
-        {
-          assetCode: {
-            $regex: q,
-            $options: "i"
-          }
-        },
-        {
-          name: {
-            $regex: q,
-            $options: "i"
-          }
-        },
-        {
-          category: {
-            $regex: q,
-            $options: "i"
-          }
-        },
-        {
-          location: {
-            $regex: q,
-            $options: "i"
-          }
-        },
-        {
-          responsiblePerson: {
-            $regex: q,
-            $options: "i"
-          }
-        }
-      ]
-    });
-
-    res.json({
-      success: true,
-      count: assets.length,
-      data: assets
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
 
 // GET /api/assets/:id/history
 exports.getAssetHistory = async (req, res) => {
   try {
-    const asset = await Asset.findOne({
-      _id: req.params.id,
-      isDeleted: false
-    });
-
-    if (!asset) {
-      return res.status(404).json({
-        success: false,
-        message: "Asset not found"
-      });
-    }
-
-    const history = await AssetHistory.find({
-      asset: asset._id
-    }).sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      count: history.length,
-      data: history
-    });
+    if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    const history = await AssetHistory.find({ asset: req.params.id }).sort({ createdAt: -1 }).lean();
+    res.json({ success: true, items: history.map(toHistoryDto) });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    fail(res, 500, error.message);
   }
 };

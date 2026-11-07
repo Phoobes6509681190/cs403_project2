@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/icon'
-import { Card, Btn, StatusPill, LoadingState, ErrorState, EmptyState } from '../components/UI'
+import { Card, StatusPill, LoadingState, ErrorState, EmptyState } from '../components/UI'
+import { STATUS } from '../data/statusConfig'
 import { getAsset, getAssetHistory } from '../services/assetService'
-import { formatDateTimeTH, currency } from '../utils/format'
+import { formatDateTH, formatDateTimeTH, currency } from '../utils/format'
 
 export default function AssetDetailPage() {
   const { id } = useParams()
@@ -43,18 +44,23 @@ export default function AssetDetailPage() {
           <div>
             <p className="text-[12px] text-faint tabular-nums">{asset.code}</p>
             <h2 className="text-lg font-bold">{asset.name}</h2>
-            <p className="text-[13px] text-muted">{asset.brand} · {asset.model}</p>
+            <p className="text-[13px] text-muted">{[asset.brand, asset.model].filter(Boolean).join(' · ') || '—'}</p>
           </div>
           <StatusPill status={asset.status} />
         </div>
+        {asset.status && STATUS[asset.status]?.hint && (
+          <p className="mt-1 text-[11px] text-faint text-right">{STATUS[asset.status].hint}</p>
+        )}
 
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-[13px]">
           <div><p className="text-faint text-[11px]">ประเภท</p><p>{asset.cat || '—'}</p></div>
           <div><p className="text-faint text-[11px]">สถานที่</p><p>{asset.room}</p></div>
-          <div><p className="text-faint text-[11px]">ผู้ดูแล</p><p>{asset.owner || '—'}</p></div>
+          <div><p className="text-faint text-[11px]">ผู้ถือครอง</p><p>{asset.owner || '—'}</p></div>
           <div><p className="text-faint text-[11px]">งบประมาณ</p><p>{asset.budget || '—'}</p></div>
           <div><p className="text-faint text-[11px]">ราคา</p><p>{asset.price ? currency(asset.price) : '—'}</p></div>
-          <div><p className="text-faint text-[11px]">วันที่รับเข้า</p><p>{formatDateTimeTH(asset.acquiredAt)}</p></div>
+          <div><p className="text-faint text-[11px]">ปีงบที่ซื้อ</p><p>{asset.codeParts?.year ? `พ.ศ. ${asset.codeParts.year < 100 ? 2500 + asset.codeParts.year : asset.codeParts.year}` : '—'}</p></div>
+          <div><p className="text-faint text-[11px]">ลำดับในชุด</p><p>{asset.codeParts ? `${asset.codeParts.seq} จาก ${asset.codeParts.total}` : '—'}</p></div>
+          <div><p className="text-faint text-[11px]">ตรวจนับล่าสุด</p><p>{formatDateTH(asset.lastInspectedAt)}</p></div>
         </div>
       </Card>
 

@@ -50,6 +50,7 @@ export const ICONS = {
     { tag: 'circle', cx: 12, cy: 17, r: 0.6, fill: 'currentColor' },
   ],
   upload: [{ tag: 'path', d: 'M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3' }],
+  download: [{ tag: 'path', d: 'M12 4v12m0 0-4-4m4 4 4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3' }],
   history: [
     { tag: 'path', d: 'M3 12a9 9 0 1 0 3-6.7' },
     { tag: 'path', d: 'M3 4v5h5' },

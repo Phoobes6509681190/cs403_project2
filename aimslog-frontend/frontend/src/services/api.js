@@ -3,7 +3,9 @@ import axios from 'axios'
 // Sprint 0: ตั้งค่า Axios Base URL ให้ชี้ไปที่ Backend
 // ใช้ environment variable เพื่อสลับระหว่าง local / staging / production ได้โดยไม่แก้โค้ด
 // (ตั้งค่าจริงใน .env — ดู .env.example)
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'
+// ค่าเริ่มต้น '/api' = เรียกผ่าน proxy โดเมนเดียวกัน (Vite dev proxy ตอนพัฒนา / Vercel rewrites ตอน deploy)
+// ทำให้ httpOnly cookie ทำงานได้โดยไม่ติดปัญหา third-party cookie ของ Safari/Chrome
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 /**
  * แนวทางความปลอดภัยของ token (สำคัญ อ่านก่อนแก้ไฟล์นี้):
