@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Btn, Field, LoadingState, ErrorState, useToast } from '../components/UI'
-import { getUsers } from '../services/userService'
+import { Card, Btn, Field, SelectField, LoadingState, ErrorState, useToast } from '../components/UI'
+import { getUsers, createUser } from '../services/userService'
 import { createInspection } from '../services/inspectionService'
 
 const currentYear = new Date().getFullYear() + 543 // ปี พ.ศ.
@@ -15,6 +15,25 @@ export default function CommitteePage() {
   const [budgetYear, setBudgetYear] = useState(String(currentYear))
   const [selected, setSelected] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const emptyUser = { username: '', name: '', password: '', role: 'user' }
+  const [newUser, setNewUser] = useState(emptyUser)
+  const [creating, setCreating] = useState(false)
+
+  const addUser = async (e) => {
+    e.preventDefault()
+    setCreating(true)
+    try {
+      const u = await createUser(newUser)
+      setUsers((prev) => [...prev, u])
+      setSelected((prev) => [...prev, u.id])
+      setNewUser(emptyUser)
+      toast.success(`เพิ่มผู้ใช้ ${u.name} แล้ว`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'เพิ่มผู้ใช้ไม่สำเร็จ')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const load = async () => {
     setState('loading')
@@ -88,9 +107,32 @@ export default function CommitteePage() {
             </div>
           </div>
 
+          <p className="text-[12px] text-muted">
+            เมื่อเริ่มรอบ ระบบจะดึงครุภัณฑ์ทุกชิ้น (ยกเว้นที่ตัดโอนแล้ว) มาเป็นรายการตรวจ
+            ผู้ถือครองที่ผูกบัญชีไว้จะยืนยันสภาพของตัวเองได้ด้วย
+          </p>
           <Btn type="submit" variant="primary" disabled={submitting}>
             {submitting ? 'กำลังสร้างรอบ...' : 'เริ่มรอบตรวจนับ'}
           </Btn>
+        </form>
+      </Card>
+
+      <Card className="p-5">
+        <h3 className="font-semibold mb-1">เพิ่มผู้ใช้ใหม่</h3>
+        <p className="text-[12px] text-muted mb-4">กรรมการหรือบุคลากรที่ยังไม่มีบัญชี — เพิ่มแล้วจะถูกเลือกเป็นกรรมการให้อัตโนมัติ</p>
+        <form onSubmit={addUser} className="grid sm:grid-cols-2 gap-3">
+          <Field label="ชื่อ-สกุล" required value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+          <Field label="ชื่อผู้ใช้ (ใช้ login)" required value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
+          <Field label="รหัสผ่านเริ่มต้น" type="password" required minLength={6} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+          <SelectField
+            label="สิทธิ์"
+            value={newUser.role}
+            onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+            options={[{ value: 'user', label: 'ผู้ใช้ทั่วไป' }, { value: 'admin', label: 'เจ้าหน้าที่พัสดุ (Admin)' }]}
+          />
+          <div className="sm:col-span-2">
+            <Btn type="submit" disabled={creating}>{creating ? 'กำลังเพิ่ม...' : 'เพิ่มผู้ใช้'}</Btn>
+          </div>
         </form>
       </Card>
     </div>

@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/icon'
 import { Card, StatusPill, LoadingState, ErrorState, EmptyState } from '../components/UI'
+import { QRCodeSVG } from 'qrcode.react'
 import { STATUS } from '../data/statusConfig'
+import { submitInspectionItem } from '../services/inspectionService'
+import { InspectButtons } from '../components/InspectButtons'
+import { useToast } from '../components/UI'
 import { getAsset, getAssetHistory } from '../services/assetService'
 import { formatDateTH, formatDateTimeTH, currency } from '../utils/format'
 
@@ -12,6 +16,21 @@ export default function AssetDetailPage() {
   const [asset, setAsset] = useState(null)
   const [history, setHistory] = useState([])
   const [state, setState] = useState('loading')
+  const [saving, setSaving] = useState(false)
+  const toast = useToast()
+
+  const inspect = async (status) => {
+    setSaving(true)
+    try {
+      await submitInspectionItem(asset.inspection.id, asset.id, status)
+      toast.success(`บันทึกผลตรวจ: ${STATUS[status].label}`)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'บันทึกผลตรวจไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const load = async () => {
     setState('loading')
@@ -61,6 +80,33 @@ export default function AssetDetailPage() {
           <div><p className="text-faint text-[11px]">ปีงบที่ซื้อ</p><p>{asset.codeParts?.year ? `พ.ศ. ${asset.codeParts.year < 100 ? 2500 + asset.codeParts.year : asset.codeParts.year}` : '—'}</p></div>
           <div><p className="text-faint text-[11px]">ลำดับในชุด</p><p>{asset.codeParts ? `${asset.codeParts.seq} จาก ${asset.codeParts.total}` : '—'}</p></div>
           <div><p className="text-faint text-[11px]">ตรวจนับล่าสุด</p><p>{formatDateTH(asset.lastInspectedAt)}</p></div>
+        </div>
+      </Card>
+
+      {asset.inspection && (
+        <Card className="p-4">
+          <h3 className="font-semibold mb-1">ตรวจนับรอบปี {asset.inspection.budgetYear}</h3>
+          <p className="text-[12px] text-muted mb-3">
+            {asset.inspection.checked
+              ? `ตรวจแล้วโดย ${asset.inspection.checkedBy} · ${formatDateTimeTH(asset.inspection.checkedAt)}`
+              : 'ยังไม่ได้ตรวจในรอบนี้'}
+          </p>
+          {asset.inspection.canInspect ? (
+            <InspectButtons disabled={saving} current={asset.inspection.result} onPick={inspect} />
+          ) : (
+            <p className="text-[12px] text-faint">คุณไม่ได้เป็นกรรมการหรือผู้ถือครองของรายการนี้</p>
+          )}
+        </Card>
+      )}
+
+      <Card className="p-4 flex items-center gap-4">
+        <div className="bg-white p-2 rounded-lg">
+          <QRCodeSVG value={`${window.location.origin}/assets/${asset.id}`} size={96} />
+        </div>
+        <div className="text-[12px] text-muted">
+          <p className="font-medium text-ink text-[13px]">QR Code ของครุภัณฑ์ชิ้นนี้</p>
+          <p>สแกนด้วยกล้องมือถือเพื่อเปิดหน้านี้ และกดบันทึกผลตรวจได้ทันที</p>
+          <Link to={`/assets/labels?ids=${asset.id}`} className="text-brand hover:underline">พิมพ์สติกเกอร์</Link>
         </div>
       </Card>
 

@@ -5,6 +5,8 @@ const { STATUS_KEYS } = require("../constants/status");
 const escapeRegex = require("../utils/escapeRegex");
 const { getBudgetMap, budgetNameFromCode } = require("../services/budget.service");
 const { toAssetDto, fromAssetInput, toHistoryDto } = require("../services/assetDto");
+const InspectionItem = require("../models/InspectionItem");
+const { getOpenInspection, canInspectItem } = require("../services/inspection.service");
 
 const fail = (res, code, message) => res.status(code).json({ success: false, message });
 const isId = (id) => mongoose.isValidObjectId(id);
@@ -75,7 +77,25 @@ exports.getAsset = async (req, res) => {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
     const asset = await Asset.findOne({ _id: req.params.id, isDeleted: false }).lean();
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
-    res.json(toAssetDto(asset));
+
+    // ถ้ามีรอบตรวจนับเปิดอยู่ แนบสถานะการตรวจของชิ้นนี้ — สแกน QR แล้วกดตรวจจากหน้านี้ได้เลย
+    let inspection = null;
+    const open = await getOpenInspection();
+    if (open) {
+      const item = await InspectionItem.findOne({ inspection: open._id, asset: asset._id }).lean();
+      if (item) {
+        inspection = {
+          id: String(open._id),
+          budgetYear: open.budgetYear,
+          checked: !!item.result,
+          result: item.result,
+          checkedBy: item.checkedByName || "",
+          checkedAt: item.checkedAt || null,
+          canInspect: canInspectItem(open, item, req.user)
+        };
+      }
+    }
+    res.json({ ...toAssetDto(asset), inspection });
   } catch (error) {
     fail(res, 500, error.message);
   }
@@ -112,6 +132,17 @@ exports.updateAsset = async (req, res) => {
       asset.budget = budgetNameFromCode(asset.assetCode, await getBudgetMap()) || asset.budget;
     }
     await asset.save();
+
+    // ผูกบัญชีผู้ถือครองใหม่ -> ให้ผู้ถือคนใหม่ยืนยันในรอบที่เปิดอยู่ได้ทันที
+    if (input.holderUser !== undefined) {
+      const open = await getOpenInspection();
+      if (open) {
+        await InspectionItem.updateOne(
+          { inspection: open._id, asset: asset._id },
+          { holderUser: asset.holderUser || null, "snapshot.holderName": asset.holderName || "" }
+        );
+      }
+    }
 
     const changes = before
       .map(([field, oldValue], i) => ({ field, oldValue, newValue: TRACKED[i][1](asset) }))

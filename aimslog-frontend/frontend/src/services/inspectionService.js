@@ -35,3 +35,7 @@ export function closeInspection(id) {
 export function appointCommittee(inspectionId, members) {
   return api.post(`/inspections/${inspectionId}/committee`, { members }).then((res) => res.data)
 }
+
+export function listInspections() {
+  return api.get('/inspections').then((res) => res.data)
+}

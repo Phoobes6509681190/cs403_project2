@@ -34,6 +34,7 @@ function fromAssetInput(body = {}) {
   if (body.brand !== undefined) out.brand = str(body.brand);
   if (body.cat !== undefined) out.category = str(body.cat);
   if (body.owner !== undefined) out.holderName = str(body.owner);
+  if (body.holderUser !== undefined) out.holderUser = body.holderUser || null;
   if (body.budget !== undefined) out.budget = str(body.budget);
   if (body.status !== undefined) out.status = str(body.status);
   if (body.price !== undefined) out.price = body.price === "" || body.price === null ? undefined : Number(body.price);

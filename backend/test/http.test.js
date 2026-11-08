@@ -61,3 +61,10 @@ test("เส้นทางที่ไม่มี -> 404 JSON", async () => {
   const r = await fetch(`${base}/nope`);
   assert.strictEqual(r.status, 404);
 });
+
+test("user ทั่วไปดูรายชื่อผู้ใช้ / เปิดรอบตรวจนับไม่ได้ -> 403", async () => {
+  const h = { Authorization: `Bearer ${tokenFor("user")}`, "Content-Type": "application/json" };
+  assert.strictEqual((await fetch(`${base}/users`, { headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/inspections`, { method: "POST", headers: h, body: "{}" })).status, 403);
+  assert.strictEqual((await fetch(`${base}/inspections/x/close`, { method: "PUT", headers: h })).status, 403);
+});

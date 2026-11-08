@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import AssetListPage from './pages/AssetListPage'
 import AssetDetailPage from './pages/AssetDetailPage'
 import AssetImportPage from './pages/AssetImportPage'
+import AssetLabelsPage from './pages/AssetLabelsPage'
 import CommitteePage from './pages/CommitteePage'
 import InspectionPage from './pages/InspectionPage'
 import ReportPage from './pages/ReportPage'
@@ -45,6 +46,7 @@ export default function App() {
             {/* เฉพาะ Admin เท่านั้น (ดู RoleRoute.jsx) */}
             <Route element={<RoleRoute allow={['admin']} />}>
               <Route path="/assets/import" element={<AssetImportPage />} />
+              <Route path="/assets/labels" element={<AssetLabelsPage />} />
               <Route path="/inspection/committee" element={<CommitteePage />} />
             </Route>
 
