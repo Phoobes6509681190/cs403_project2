@@ -1,6 +1,7 @@
 // สร้างข้อมูลเริ่มต้น: ผู้ใช้ทดสอบ + ตารางงบประมาณ
 // รัน: npm run seed   (รันซ้ำได้ ไม่สร้างซ้ำ — ถ้ามี user อยู่แล้วจะไม่เปลี่ยนรหัสผ่าน)
 require("dotenv").config();
+require("./config/dns");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const User = require("./models/User");
