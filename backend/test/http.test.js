@@ -68,3 +68,8 @@ test("user ทั่วไปดูรายชื่อผู้ใช้ / เ
   assert.strictEqual((await fetch(`${base}/inspections`, { method: "POST", headers: h, body: "{}" })).status, 403);
   assert.strictEqual((await fetch(`${base}/inspections/x/close`, { method: "PUT", headers: h })).status, 403);
 });
+
+test("รายงานต้อง login", async () => {
+  assert.strictEqual((await fetch(`${base}/reports/summary`)).status, 401);
+  assert.strictEqual((await fetch(`${base}/reports/detail`)).status, 401);
+});

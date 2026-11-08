@@ -102,3 +102,13 @@ body {
     transition: none !important;
   }
 }
+
+/* ตอนพิมพ์ (PDF) ใช้สีโทนสว่างเสมอ แม้ผู้ใช้เปิดธีมมืดอยู่ */
+@media print {
+  :root, :root:not([data-theme='light']), :root[data-theme='dark'] {
+    --bg: #ffffff; --surface: #ffffff; --surface2: #ffffff; --line: #d1d5db;
+    --ink: #000000; --muted: #374151; --faint: #6b7280;
+  }
+  body { background: #ffffff !important; }
+  @page { size: A4; margin: 12mm; }
+}

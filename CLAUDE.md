@@ -41,5 +41,5 @@ cd aimslog-frontend/frontend && npm install && npm run dev   # :5173
 ## แผน 4 สัปดาห์
 1. พื้นฐาน + Import ✅ (branch `feature/week1-foundation`)
 2. ตรวจนับ (Inspection รอบ + InspectionItem, กรรมการ, polling, self-check) + หน้าพิมพ์ QR ✅
-3. รายงาน (summary/detail API, Export Excel, พิมพ์ PDF) + UAT กับพี่เป้
+3. รายงาน (summary/detail API, Export Excel, พิมพ์ PDF) ✅ + UAT กับพี่เป้
 4. แก้บัค + ทำรูปเล่ม (หยุดเพิ่มฟีเจอร์)

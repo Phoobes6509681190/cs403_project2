@@ -50,7 +50,7 @@ exports.getAssets = async (req, res) => {
     }
 
     const [items, total, rooms, budgets] = await Promise.all([
-      Asset.find(filter).sort({ "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
+      Asset.find(filter).sort(req.query.sort === "-createdAt" ? { createdAt: -1, _id: -1 } : { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
         .skip((page - 1) * perPage).limit(perPage).lean(),
       Asset.countDocuments(filter),
       Asset.distinct("location.label", { isDeleted: false }),

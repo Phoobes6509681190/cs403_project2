@@ -36,6 +36,7 @@ app.use("/api/assets", require("./routes/asset.routes"));
 app.use("/api/budgets", require("./routes/budget.routes"));
 app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/inspections", require("./routes/inspection.routes"));
+app.use("/api/reports", require("./routes/report.routes"));
 
 app.use("/api", (req, res) => res.status(404).json({ success: false, message: "ไม่พบ API นี้" }));
 
