@@ -40,11 +40,14 @@ export function previewImport(file) {
   return api.post('/assets/import/preview', fd).then((res) => res.data)
 }
 
-export function commitImport(file, { statusMapping = {}, budgetMapping = {} } = {}) {
+// นำเข้าแล้วข้อมูลในระบบตรงกับไฟล์ (ค่าเดิมเก็บในประวัติ)
+// updates (ไม่บังคับ) = { assetId: ['status', ...] } ถ้าต้องการอัปเดตเฉพาะบางช่อง
+export function commitImport(file, { statusMapping = {}, budgetMapping = {}, updates } = {}) {
   const fd = new FormData()
   fd.append('file', file)
   fd.append('statusMapping', JSON.stringify(statusMapping))
   fd.append('budgetMapping', JSON.stringify(budgetMapping))
+  if (updates) fd.append('updates', JSON.stringify(updates))
   return api.post('/assets/import', fd).then((res) => res.data)
 }
 

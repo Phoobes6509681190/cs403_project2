@@ -53,14 +53,15 @@ function fromAssetInput(body = {}) {
   return out;
 }
 
-const FIELD_LABELS = { status: "สถานะ", location: "สถานที่", holderName: "ผู้ถือครอง" };
+const FIELD_LABELS = { status: "สถานะ", location: "สถานที่", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ" };
 
 function historySummary(h) {
   if (h.action === "create") return "เพิ่มครุภัณฑ์เข้าระบบ";
-  if (h.action === "import") return "นำเข้าจากไฟล์ Excel";
+  if (h.action === "import" && !(h.changes || []).length) return "นำเข้าจากไฟล์ Excel";
   if (h.action === "delete") return "ลบครุภัณฑ์ (ย้ายไปถังขยะ)";
   if (h.action === "restore") return "กู้คืนจากถังขยะ";
-  return (h.changes || [])
+  const prefix = h.action === "import" ? "อัปเดตจาก Excel — " : "";
+  return prefix + (h.changes || [])
     .map((c) => {
       const fmt = (v) => (c.field === "status" ? STATUSES[v]?.label || v : v) || "—";
       return `${FIELD_LABELS[c.field] || c.field}: ${fmt(c.oldValue)} → ${fmt(c.newValue)}`;
