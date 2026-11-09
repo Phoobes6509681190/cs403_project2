@@ -141,6 +141,19 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(raw.legacy["สภาพ"], "ปกติ", "เก็บค่าดิบจาก Excel ใน legacy");
   });
 
+  await t.test("QR: พิมพ์เฉพาะชิ้นที่ยังไม่เคยพิมพ์ แล้วทำเครื่องหมายว่าพิมพ์แล้ว", async () => {
+    const first = await api("GET", "/assets?qr=unprinted&perPage=100", { token: tok.admin });
+    assert.strictEqual(first.data.total, 22);
+    assert.strictEqual(first.data.qrUnprinted, 6, "นับเฉพาะที่ยังอยู่ในสาขา (ไม่รวมตัดโอน)");
+    const ids = first.data.items.slice(0, 5).map((a) => a.id);
+    const m = await api("POST", "/assets/qr-printed", { token: tok.admin, body: { ids } });
+    assert.strictEqual(m.data.updated, 5);
+    const after = await api("GET", "/assets?qr=unprinted&perPage=100", { token: tok.admin });
+    assert.strictEqual(after.data.total, 17);
+    assert.ok(!after.data.items.some((a) => ids.includes(a.id)));
+    assert.strictEqual((await api("POST", "/assets/qr-printed", { token: tok.other, body: { ids } })).status, 403);
+  });
+
   await t.test("user ทั่วไปแก้ไข/นำเข้าไม่ได้ (403)", async () => {
     const r = await api("PUT", `/assets/${ids.asset13}`, { token: tok.other, body: { status: "broken" } });
     assert.strictEqual(r.status, 403);

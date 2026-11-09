@@ -18,6 +18,7 @@ router.get("/trash", admin, asset.getTrash);
 router.delete("/trash", admin, asset.emptyTrash);
 router.get("/", asset.getAssets);
 router.post("/", admin, asset.createAsset);
+router.post("/qr-printed", admin, asset.markQrPrinted);
 router.get("/:id", asset.getAsset);
 router.get("/:id/history", asset.getAssetHistory);
 router.put("/:id", admin, asset.updateAsset);

@@ -19,6 +19,7 @@ function toAssetDto(a) {
     status: a.status,
     acquiredAt: a.acquiredAt || null,
     lastInspectedAt: a.lastInspectedAt || null,
+    qrPrintedAt: a.qrPrintedAt || null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt
   };

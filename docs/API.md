@@ -230,12 +230,16 @@ Error: `400` รหัสเดิมผิด / สั้นกว่า 8 ต�
 | `holderUser=me` | เฉพาะที่ผู้ใช้คนนี้ถือครอง |
 | `page`, `perPage` | แบ่งหน้า (ค่าเริ่มต้น 1, 20 · สูงสุด 200) |
 | `sort=-createdAt` | เรียงจากเพิ่มล่าสุด (ค่าเริ่มต้นเรียงตามปีในเลขครุภัณฑ์) |
+| `qr=unprinted` | เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR |
 
 ```json
 { "success": true, "items": [ Asset… ], "total": 22, "page": 1, "perPage": 20,
   "rooms": ["บร.2 ชั้น 1 ห้อง 107"], "budgets": ["งบพิเศษ"] }
 ```
-`rooms` / `budgets` = ตัวเลือกสำหรับ dropdown กรอง
+`rooms` / `budgets` = ตัวเลือกสำหรับ dropdown กรอง · `qrUnprinted` = จำนวนที่ยังไม่เคยพิมพ์ QR (ไม่รวมตัดโอน)
+
+#### `POST /assets/qr-printed` 🛡️
+`{ "ids": ["…", "…"] }` → `{ "success": true, "updated": 6 }` — ทำเครื่องหมายว่าพิมพ์สติกเกอร์ QR แล้ว (`qrPrintedAt`)
 
 #### `POST /assets` 🛡️ · `PUT /assets/:id` 🛡️
 ```json

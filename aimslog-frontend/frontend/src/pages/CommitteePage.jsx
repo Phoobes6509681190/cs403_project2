@@ -108,10 +108,6 @@ export default function CommitteePage() {
 
       {step === 1 && (
         <Card className="p-5 space-y-3">
-          <div className="rounded-xl bg-warnsoft text-warn text-[12px] px-3 py-2">
-            มีเพียงกรรมการที่เลือกในขั้นนี้ที่บันทึกผลตรวจได้ — เจ้าหน้าที่พัสดุดูความคืบหน้าได้อย่างเดียว
-            (คนจัดซื้อกับคนตรวจควรเป็นคนละคน) · ผู้ถือครองที่ผูกบัญชีไว้ยืนยันของตัวเองได้เสมอ
-          </div>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -133,7 +129,7 @@ export default function CommitteePage() {
             {shown.length === 0 && <p className="px-4 py-6 text-center text-muted text-[13px]">ไม่พบรายชื่อ</p>}
           </div>
           <p className="text-[12px] text-muted">
-            ไม่พบชื่อที่ต้องการ? เพิ่มบัญชีได้ที่ <Link to="/users" className="text-brand hover:underline">จัดการผู้ใช้</Link>
+            <Link to="/users" className="text-brand hover:underline">+ เพิ่มผู้ใช้</Link>
           </p>
           <div className="flex gap-2">
             <Btn onClick={() => setStep(0)}>ย้อนกลับ</Btn>
@@ -152,7 +148,7 @@ export default function CommitteePage() {
               {chosen.map((u) => (
                 <div key={u.id} className="flex items-center gap-2">
                   <Avatar user={u} size={24} /> {u.name}
-                  {u.id === me?.id && <span className="text-[11px] text-warn">(คุณ — ผู้แต่งตั้งเป็นกรรมการเองด้วย)</span>}
+                  {u.id === me?.id && <span className="text-[11px] text-faint">(คุณ)</span>}
                 </div>
               ))}
             </dd>

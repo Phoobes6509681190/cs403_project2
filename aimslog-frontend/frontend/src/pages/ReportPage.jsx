@@ -137,9 +137,6 @@ export default function ReportPage() {
           </table>
           {groups.length === 0 && <p className="py-6 text-center text-muted">ไม่มีข้อมูล</p>}
         </div>
-        <p className="text-[11px] text-faint mt-2">
-          * “รวม” ไม่นับครุภัณฑ์ที่ตัดโอนให้หน่วยงานอื่นแล้ว · งบเดิมคืองบในอดีตที่ยังมีครุภัณฑ์คงเหลือ
-        </p>
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-3 print:hidden">

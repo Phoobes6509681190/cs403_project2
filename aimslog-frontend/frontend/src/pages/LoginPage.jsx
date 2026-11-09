@@ -82,7 +82,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center text-center">
             <DeptLogo className="h-14" />
             <h1 className="mt-3 text-lg font-bold">ยืนยันตัวตน 2 ขั้นตอน</h1>
-            <p className="text-[12px] text-muted mt-1">เปิดแอป Authenticator ในมือถือ แล้วกรอกรหัส 6 หลักของ AIMSlog</p>
+            <p className="text-[12px] text-muted mt-1">กรอกรหัส 6 หลักจากแอป Authenticator หรือรหัสสำรอง</p>
           </div>
           <form className="mt-6 space-y-4" onSubmit={submitMfa} noValidate>
             <input
@@ -100,10 +100,6 @@ export default function LoginPage() {
               {loading ? 'กำลังตรวจสอบ...' : 'ยืนยัน'}
             </Btn>
           </form>
-          <p className="mt-4 text-[11px] text-faint text-center leading-relaxed">
-            ทำมือถือหาย? ใช้ <b>รหัสสำรอง</b> (แบบ XXXXX-XXXXX) ที่ได้ตอนเปิด MFA แทนรหัส 6 หลักได้
-            หรือติดต่อ Admin อีกคนให้ปิด MFA ให้
-          </p>
           <button
             type="button"
             onClick={() => { setMfaToken(''); setCode(''); setError('') }}

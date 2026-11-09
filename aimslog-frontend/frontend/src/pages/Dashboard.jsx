@@ -43,7 +43,7 @@ export default function Dashboard() {
       {user?.role === 'admin' && !user?.mfaEnabled && (
         <Link to="/profile?tab=security" className="block">
           <Card className="p-4 border-warn/40 bg-warnsoft text-[13px] text-warn hover:opacity-90">
-            บัญชี Admin ของคุณยังไม่ได้เปิดยืนยันตัวตน 2 ขั้นตอน (MFA) — แนะนำให้เปิดเพื่อกันกรณีรหัสผ่านหลุด <b>เปิดใช้ →</b>
+            ยังไม่ได้เปิด MFA <b>เปิดใช้ →</b>
           </Card>
         </Link>
       )}

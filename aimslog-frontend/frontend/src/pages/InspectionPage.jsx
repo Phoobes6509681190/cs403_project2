@@ -162,16 +162,6 @@ export default function InspectionPage() {
             <p className="text-[12px] text-muted">
               กรรมการ: {inspection.committee.map((c) => c.name).join(', ') || '—'}
             </p>
-            {mine && isOpen && (
-              <p className="text-[12px] text-brand mt-1">
-                คุณไม่ได้เป็นกรรมการรอบนี้ — ยืนยันสภาพครุภัณฑ์ที่คุณถือครองได้ด้านล่าง
-              </p>
-            )}
-            {!mine && !inspection.isCommittee && isOpen && (
-              <p className="text-[12px] text-warn mt-1">
-                คุณดูความคืบหน้าได้อย่างเดียว — บันทึกผลได้เฉพาะกรรมการที่ได้รับแต่งตั้ง (กันการกดผิดแทนกรรมการ)
-              </p>
-            )}
           </div>
           {inspection.canClose && (
             <Btn variant="danger" onClick={() => setConfirmClose(true)}>
@@ -179,10 +169,6 @@ export default function InspectionPage() {
             </Btn>
           )}
         </div>
-        <p className="mt-3 text-[12px] text-muted bg-surface2 rounded-xl px-3 py-2">
-          รอบตรวจนับ = การตรวจสอบพัสดุประจำปีงบประมาณ — ครุภัณฑ์แต่ละชิ้นนับ <b>1 ครั้งต่อรอบ</b> เพื่อยืนยันว่ายังอยู่และสภาพเป็นอย่างไร
-          ชิ้นที่ตรวจแล้วจะย้ายไปแท็บ "ตรวจแล้ว" (กด "แก้ไขผล" ได้ถ้าบันทึกผิด) · เมื่อปิดรอบ ผลจะล็อกและใช้ออกรายงานประจำปี
-        </p>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />
           {!mine && progress?.selfChecked > 0 && (
@@ -226,7 +212,7 @@ export default function InspectionPage() {
         {room && isOpen && inspection.isCommittee && roomPending > 0 && (
           <div className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-3 flex flex-wrap items-center gap-3">
             <p className="text-[12px] text-muted flex-1 min-w-[220px]">
-              <b className="text-ink">ตรวจทั้งห้อง:</b> กดชิ้นที่ต่างจากส่วนใหญ่ทีละชิ้นก่อน แล้วบันทึกผลให้ที่เหลือ {nf(roomPending)} ชิ้นในครั้งเดียว
+              <b className="text-ink">ตรวจทั้งห้อง</b> · เหลือ {nf(roomPending)} ชิ้น
             </p>
             <select
               value={bulkStatus}

@@ -107,7 +107,7 @@ export default function ProfilePage() {
       {tab === 'assets' && (
         <Card className="p-4">
           {assets.items.length === 0 ? (
-            <EmptyState message="ยังไม่มีครุภัณฑ์ที่ผูกกับบัญชีของคุณ — ให้เจ้าหน้าที่พัสดุผูกบัญชีผู้ถือครองในหน้าแก้ไขครุภัณฑ์" />
+            <EmptyState message="ยังไม่มีครุภัณฑ์ที่ถือครอง" />
           ) : (
             <ul className="divide-y divide-line">
               {assets.items.map((a) => (
@@ -280,15 +280,12 @@ function MfaCard({ user, onChange }) {
           {user?.mfaEnabled ? 'เปิดใช้อยู่' : 'ปิดอยู่'}
         </span>
       </div>
-      <p className="text-[12px] text-muted mb-4">
-        นอกจากรหัสผ่าน ต้องกรอกรหัส 6 หลักจากแอปในมือถือทุกครั้งที่เข้าสู่ระบบ — แม้รหัสผ่านหลุด คนอื่นก็เข้าบัญชีไม่ได้
-        {user?.role === 'admin' && <b className="text-ink"> แนะนำอย่างยิ่งสำหรับบัญชี Admin</b>}
-      </p>
+      <div className="mb-4" />
 
       {step === 'codes' && (
         <div className="rounded-2xl border border-warn/40 bg-warnsoft p-4 mb-4">
           <p className="text-[13px] font-semibold text-warn">รหัสสำรอง — จดหรือพิมพ์เก็บไว้ตอนนี้ (แสดงครั้งเดียว)</p>
-          <p className="text-[12px] text-muted mb-3">ใช้แทนรหัส 6 หลักได้ชุดละ 1 ครั้ง เมื่อทำมือถือหาย</p>
+          <div className="mb-3" />
           <div className="grid grid-cols-2 gap-2 font-mono text-[14px]">
             {codes.map((c) => <span key={c} className="bg-surface rounded-lg px-3 py-1.5 text-center">{c}</span>)}
           </div>
