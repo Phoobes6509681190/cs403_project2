@@ -14,6 +14,7 @@ import AssetLabelsPage from './pages/AssetLabelsPage'
 import CommitteePage from './pages/CommitteePage'
 import InspectionPage from './pages/InspectionPage'
 import ReportPage from './pages/ReportPage'
+import AccountPage from './pages/AccountPage'
 import ForbiddenPage from './pages/ForbiddenPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/inspection" element={<InspectionPage />} />
             <Route path="/inspection/:id" element={<InspectionPage />} />
             <Route path="/reports" element={<ReportPage />} />
+            <Route path="/account" element={<AccountPage />} />
           </Route>
         </Route>
 

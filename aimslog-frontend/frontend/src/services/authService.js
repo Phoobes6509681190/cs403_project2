@@ -17,3 +17,7 @@ export function logout() {
 export function fetchMe() {
   return api.get('/auth/me').then((res) => res.data)
 }
+
+export function changePassword(currentPassword, newPassword) {
+  return api.put('/auth/password', { currentPassword, newPassword }).then((res) => res.data)
+}

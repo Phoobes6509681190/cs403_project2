@@ -6,4 +6,5 @@ export const TITLES = {
   inspection: 'ตรวจนับครุภัณฑ์',
   committee: 'แต่งตั้งกรรมการตรวจนับ',
   reports: 'รายงาน',
+  account: 'บัญชีผู้ใช้',
 }

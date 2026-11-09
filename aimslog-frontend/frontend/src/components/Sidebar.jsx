@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import Icon, { Logo } from './icon'
 import { NAV } from '../data/nav'
 import { RolePill } from './UI'
@@ -59,12 +59,13 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
             <span className="w-9 h-9 rounded-full bg-brandsoft text-brandink grid place-items-center text-[12px] font-bold">
               {(user?.name || user?.username || '?').slice(0, 2).toUpperCase()}
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold leading-tight truncate">{user?.name || user?.username}</p>
+            <Link to="/account" onClick={() => setOpen(false)} title="บัญชีผู้ใช้ / เปลี่ยนรหัสผ่าน" className="min-w-0 flex-1 group">
+              <p className="text-[13px] font-semibold leading-tight truncate group-hover:text-brand">{user?.name || user?.username}</p>
               <div className="mt-0.5">
                 <RolePill role={role} />
               </div>
-            </div>
+              <p className="text-[11px] text-faint group-hover:text-brand mt-0.5">เปลี่ยนรหัสผ่าน</p>
+            </Link>
             <button onClick={onLogoutClick} title="ออกจากระบบ" className="text-faint hover:text-bad p-1">
               <Icon name="out" />
             </button>

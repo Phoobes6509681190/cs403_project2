@@ -7,5 +7,6 @@ router.use(protect, requireRole("admin"));
 
 router.get("/", c.list);
 router.post("/", c.create);
+router.put("/:id/password", c.resetPassword);
 
 module.exports = router;

@@ -123,7 +123,7 @@ export default function CommitteePage() {
         <form onSubmit={addUser} className="grid sm:grid-cols-2 gap-3">
           <Field label="ชื่อ-สกุล" required value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
           <Field label="ชื่อผู้ใช้ (ใช้ login)" required value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
-          <Field label="รหัสผ่านเริ่มต้น" type="password" required minLength={6} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+          <Field label="รหัสผ่านเริ่มต้น" type="password" required minLength={8} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
           <SelectField
             label="สิทธิ์"
             value={newUser.role}
