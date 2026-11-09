@@ -412,6 +412,9 @@ cd backend && npm run reset-password -- <username>
 
 #### `PUT /inspections/:id/close` 🛡️
 ปิดรอบ ล็อกผล → `{ "success": true, "progress": { … } }` · `409` ถ้าปิดไปแล้ว
+- **Admin ที่เปิดรอบ** ปิดได้เลย
+- **Admin คนอื่น** ปิดแทนได้ แต่ต้องส่ง `{ "reason": "เหตุผลอย่างน้อย 5 ตัวอักษร" }` ไม่งั้นได้ `400`
+- รายละเอียดรอบ (`GET /inspections/:id`) มี `createdBy`, `closedBy`, `closeReason`, `canClose`, `closeNeedsReason`
 
 #### `POST /inspections/:id/committee` 🛡️
 `{ "members": ["userId", "userId"] }` — แทนที่รายชื่อเดิม (เฉพาะรอบที่ยังเปิด)

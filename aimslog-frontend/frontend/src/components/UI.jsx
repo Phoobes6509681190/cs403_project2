@@ -179,19 +179,20 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   )
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel = 'ยืนยัน', danger, onConfirm, onCancel, loading }) {
+export function ConfirmDialog({ open, title, message, confirmLabel = 'ยืนยัน', danger, onConfirm, onCancel, loading, disabled, children }) {
   return (
     <Modal open={open} onClose={onCancel} title={title} size="sm"
       footer={
         <>
           <Btn onClick={onCancel} disabled={loading}>ยกเลิก</Btn>
-          <Btn variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={loading}>
+          <Btn variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={loading || disabled}>
             {loading ? <Spinner className="w-4 h-4" /> : confirmLabel}
           </Btn>
         </>
       }
     >
       <p className="text-[13px] text-muted">{message}</p>
+      {children}
     </Modal>
   )
 }

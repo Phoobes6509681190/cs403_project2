@@ -21,6 +21,7 @@ export default function InspectionPage() {
   const [state, setState] = useState('loading')
   const [confirmClose, setConfirmClose] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [closeReason, setCloseReason] = useState('')
   const [submittingId, setSubmittingId] = useState(null)
   const [tab, setTab] = useState('pending')
   const [q, setQ] = useState('')
@@ -77,7 +78,7 @@ export default function InspectionPage() {
   const handleClose = async () => {
     setClosing(true)
     try {
-      await closeInspection(inspection.id)
+      await closeInspection(inspection.id, inspection.closeNeedsReason ? closeReason.trim() : undefined)
       toast.success('ปิดรอบตรวจนับเรียบร้อยแล้ว')
       setConfirmClose(false)
       load()
@@ -148,6 +149,13 @@ export default function InspectionPage() {
               {!isOpen && <span className="ml-1 text-[12px] font-normal text-muted">(ปิดแล้ว {formatDateTimeTH(inspection.closedAt)})</span>}
             </p>
             <p className="text-[12px] text-muted">
+              เปิดรอบโดย {inspection.createdBy?.name || '—'}
+              {!isOpen && inspection.closedBy && <> · ปิดรอบโดย {inspection.closedBy.name}</>}
+            </p>
+            {!isOpen && inspection.closeReason && (
+              <p className="text-[12px] text-warn">ปิดแทนผู้เปิดรอบ — เหตุผล: {inspection.closeReason}</p>
+            )}
+            <p className="text-[12px] text-muted">
               กรรมการ: {inspection.committee.map((c) => c.name).join(', ') || '—'}
             </p>
             {mine && isOpen && (
@@ -161,8 +169,10 @@ export default function InspectionPage() {
               </p>
             )}
           </div>
-          {role === 'admin' && isOpen && (
-            <Btn variant="danger" onClick={() => setConfirmClose(true)}>ปิดรอบ</Btn>
+          {inspection.canClose && (
+            <Btn variant="danger" onClick={() => setConfirmClose(true)}>
+              {inspection.closeNeedsReason ? 'ปิดรอบแทน' : 'ปิดรอบ'}
+            </Btn>
           )}
         </div>
         <p className="mt-3 text-[12px] text-muted bg-surface2 rounded-xl px-3 py-2">
@@ -300,9 +310,25 @@ export default function InspectionPage() {
         confirmLabel="ปิดรอบ"
         danger
         loading={closing}
+        disabled={inspection.closeNeedsReason && closeReason.trim().length < 5}
         onConfirm={handleClose}
         onCancel={() => setConfirmClose(false)}
-      />
+      >
+        {inspection.closeNeedsReason && (
+          <label className="block mt-3">
+            <span className="text-[13px] text-warn">
+              รอบนี้เปิดโดย {inspection.createdBy?.name || 'Admin คนอื่น'} — ถ้าปิดแทน ต้องระบุเหตุผล (บันทึกไว้ให้ตรวจสอบภายหลัง)
+            </span>
+            <textarea
+              rows={3}
+              value={closeReason}
+              onChange={(e) => setCloseReason(e.target.value)}
+              placeholder="เช่น ผู้เปิดรอบลาป่วย และต้องส่งรายงานภายในวันนี้"
+              className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-[13px] placeholder:text-faint focus:border-brand"
+            />
+          </label>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }

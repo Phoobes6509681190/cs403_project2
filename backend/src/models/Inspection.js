@@ -10,7 +10,9 @@ const inspectionSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     totalItems: { type: Number, default: 0 },
     closedAt: Date,
-    closedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+    closedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // ปิดรอบได้โดยคนที่เปิดรอบ — Admin คนอื่นปิดแทนได้แต่ต้องระบุเหตุผล (เก็บไว้ตรวจสอบย้อนหลัง)
+    closeReason: { type: String, trim: true, maxlength: 500 }
   },
   { timestamps: true }
 );

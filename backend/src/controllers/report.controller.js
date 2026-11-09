@@ -66,6 +66,8 @@ exports.summary = async (req, res) => {
         budgetYear: latest.budgetYear,
         status: latest.status,
         closedAt: latest.closedAt || null,
+        closedBy: latest.closedBy ? (await require("../models/User").findById(latest.closedBy, { name: 1 }).lean())?.name || "" : "",
+        closeReason: latest.closeReason || "",
         progress: await progressOf(latest._id)
       };
     }
