@@ -78,11 +78,6 @@ export default function AssetImportPage() {
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
             <h2 className="font-semibold mb-1">นำเข้าครุภัณฑ์จาก Excel</h2>
-            <p className="text-[12px] text-muted">
-              ใช้ไฟล์จากคณะได้เลย ระบบหาแถวหัวตารางเอง ต้องมีคอลัมน์ “รหัสสินทรัพย์อ้างอิง” และ “ชื่อสินทรัพย์”
-              <br />
-              ระบบเทียบกับข้อมูลเดิมให้ดูก่อนยืนยัน — นำเข้าแล้วข้อมูลในระบบจะตรงกับไฟล์ ส่วนค่าเดิมเก็บไว้ในประวัติของครุภัณฑ์
-            </p>
           </div>
           <Btn onClick={onTemplate}>
             <Icon name="download" /> ดาวน์โหลด Template
@@ -112,7 +107,7 @@ export default function AssetImportPage() {
               <h3 className="font-semibold mb-1 flex items-center gap-2 text-warn">
                 <Icon name="warning" className="w-4 h-4" /> พบสถานะที่ระบบไม่รู้จัก {preview.unknownStatuses.length} แบบ
               </h3>
-              <p className="text-[12px] text-muted mb-3">เลือกว่าแต่ละค่าหมายถึงสถานะไหน (ค่าเดิมยังถูกเก็บไว้)</p>
+              <div className="mb-3" />
               <div className="grid sm:grid-cols-2 gap-3">
                 {preview.unknownStatuses.map((s) => (
                   <SelectField
@@ -133,9 +128,7 @@ export default function AssetImportPage() {
               <h3 className="font-semibold mb-1 flex items-center gap-2 text-warn">
                 <Icon name="warning" className="w-4 h-4" /> พบตัวย่องบที่ระบบยังไม่รู้จัก {preview.unknownBudgets.length} แบบ
               </h3>
-              <p className="text-[12px] text-muted mb-3">
-                ระบุชื่องบของแต่ละตัวย่อ (เช่น งบคลัง, งบรายได้หน่วยงาน) — ระบบจะจำไว้ใช้ครั้งต่อไป และไม่แปลงงบเก่าเป็นงบใหม่
-              </p>
+              <div className="mb-3" />
               <datalist id="budget-names">
                 {[...preview.budgets, 'งบคลัง', 'งบรายได้หน่วยงาน']
                   .filter((v, i, a) => a.indexOf(v) === i)
@@ -160,17 +153,6 @@ export default function AssetImportPage() {
             </Card>
           )}
 
-          {(preview.unrecognizedCodes > 0 || preview.unknownColumns.length > 0) && (
-            <Card className="p-4 text-[12px] text-muted space-y-1">
-              {preview.unrecognizedCodes > 0 && (
-                <p>• มี {nf(preview.unrecognizedCodes)} รายการที่รูปแบบเลขครุภัณฑ์อ่านไม่ได้ จะนำเข้าโดยงบเป็น “ไม่ระบุ”</p>
-              )}
-              {preview.unknownColumns.length > 0 && (
-                <p>• คอลัมน์ที่ระบบไม่ได้ใช้ (แต่เก็บค่าไว้): {preview.unknownColumns.join(', ')}</p>
-              )}
-            </Card>
-          )}
-
 
           {preview.missingTotal > 0 && (
             <Card className="p-4">
@@ -178,9 +160,6 @@ export default function AssetImportPage() {
                 <h3 className="font-semibold flex-1">มีในระบบแต่ไม่อยู่ในไฟล์ ({nf(preview.missingTotal)} รายการ)</h3>
                 <span className="text-[12px] text-brand">{showMissing ? 'ซ่อน' : 'ดูรายการ'}</span>
               </button>
-              <p className="text-[12px] text-muted mt-1">
-                ระบบไม่เปลี่ยนอะไรให้ — ควรตรวจว่าถูกโอน/จำหน่ายไปแล้วหรือไม่ (ถ้าไฟล์นี้มีเฉพาะบางห้อง รายการเหล่านี้อาจไม่ใช่ปัญหา)
-              </p>
               {showMissing && (
                 <ul className="mt-3 divide-y divide-line max-h-72 overflow-y-auto">
                   {preview.missing.map((a) => (
@@ -207,10 +186,7 @@ export default function AssetImportPage() {
                 </Btn>
               </div>
             </div>
-            <p className="text-[12px] text-muted mb-3">
-              หลังนำเข้า ข้อมูลในระบบจะตรงกับไฟล์นี้ · ช่องที่ <span className="text-warn font-medium">ไฮไลต์</span> คือค่าที่เปลี่ยนจากในระบบ
-              (ค่าเดิมแสดงตัวเล็กด้านล่างและถูกเก็บในประวัติของครุภัณฑ์)
-            </p>
+            <div className="mb-3" />
             {(missingStatus || missingBudget) && (
               <p className="text-[12px] text-warn mb-2">กรุณาเลือกสถานะ/งบที่ระบบไม่รู้จักให้ครบก่อนนำเข้า</p>
             )}

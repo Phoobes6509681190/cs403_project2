@@ -43,6 +43,8 @@ exports.getAssets = async (req, res) => {
     if (holder) filter.holderName = String(holder);
     // ?holderUser=me — ครุภัณฑ์ที่ฉันถือครอง (หน้าโปรไฟล์)
     if (req.query.holderUser === "me") filter.holderUser = req.user.userId;
+    // ?qr=unprinted — เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR (เช่น ของที่เพิ่ง import เข้ามา)
+    if (req.query.qr === "unprinted") filter.qrPrintedAt = null;
     if (q && String(q).trim()) {
       const re = new RegExp(escapeRegex(String(q).trim()), "i");
       filter.$or = [
@@ -51,12 +53,13 @@ exports.getAssets = async (req, res) => {
       ];
     }
 
-    const [items, total, rooms, budgets] = await Promise.all([
+    const [items, total, rooms, budgets, qrUnprinted] = await Promise.all([
       Asset.find(filter).sort(req.query.sort === "-createdAt" ? { createdAt: -1, _id: -1 } : { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
         .skip((page - 1) * perPage).limit(perPage).lean(),
       Asset.countDocuments(filter),
       Asset.distinct("location.label", { isDeleted: false }),
-      Asset.distinct("budget", { isDeleted: false })
+      Asset.distinct("budget", { isDeleted: false }),
+      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $ne: "transferred" } })
     ]);
 
     res.json({
@@ -66,7 +69,8 @@ exports.getAssets = async (req, res) => {
       page,
       perPage,
       rooms: rooms.filter(Boolean).sort(),
-      budgets: budgets.filter(Boolean).sort()
+      budgets: budgets.filter(Boolean).sort(),
+      qrUnprinted
     });
   } catch (error) {
     fail(res, 500, error.message);
@@ -252,6 +256,18 @@ exports.purgeAsset = async (req, res) => {
 exports.emptyTrash = async (req, res) => {
   try {
     res.json({ success: true, deleted: await purge({}) });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
+// POST /api/assets/qr-printed (admin) body: { ids: [...] } — ทำเครื่องหมายว่าพิมพ์สติกเกอร์ QR แล้ว
+exports.markQrPrinted = async (req, res) => {
+  try {
+    const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).filter(isId).slice(0, 5000);
+    if (!ids.length) return fail(res, 400, "ไม่มีรายการ");
+    const r = await Asset.updateMany({ _id: { $in: ids }, isDeleted: false }, { qrPrintedAt: new Date() });
+    res.json({ success: true, updated: r.modifiedCount });
   } catch (error) {
     fail(res, 500, error.message);
   }

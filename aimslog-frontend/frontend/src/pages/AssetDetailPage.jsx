@@ -69,9 +69,6 @@ export default function AssetDetailPage() {
           </div>
           <StatusPill status={asset.status} />
         </div>
-        {asset.status && STATUS[asset.status]?.hint && (
-          <p className="mt-1 text-[11px] text-faint text-right">{STATUS[asset.status].hint}</p>
-        )}
 
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-[13px]">
           <div><p className="text-faint text-[11px]">ประเภท</p><p>{asset.cat || '—'}</p></div>
@@ -107,9 +104,7 @@ export default function AssetDetailPage() {
                 )}
               </div>
             )
-          ) : (
-            <p className="text-[12px] text-faint">คุณไม่ได้เป็นกรรมการหรือผู้ถือครองของรายการนี้</p>
-          )}
+          ) : null}
         </Card>
       )}
 
@@ -118,8 +113,7 @@ export default function AssetDetailPage() {
           <QRCodeSVG value={`${window.location.origin}/assets/${asset.id}`} size={96} />
         </div>
         <div className="text-[12px] text-muted">
-          <p className="font-medium text-ink text-[13px]">QR Code ของครุภัณฑ์ชิ้นนี้</p>
-          <p>สแกนด้วยกล้องมือถือเพื่อเปิดหน้านี้ และกดบันทึกผลตรวจได้ทันที</p>
+          <p className="font-medium text-ink text-[13px]">QR Code</p>
           <Link to={`/assets/labels?ids=${asset.id}`} className="text-brand hover:underline">พิมพ์สติกเกอร์</Link>
         </div>
       </Card>

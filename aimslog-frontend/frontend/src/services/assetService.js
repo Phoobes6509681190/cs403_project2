@@ -89,3 +89,8 @@ export function purgeAsset(id) {
 export function emptyTrash() {
   return api.delete('/assets/trash').then((res) => res.data)
 }
+
+// ทำเครื่องหมายว่าพิมพ์สติกเกอร์ QR แล้ว — ครั้งต่อไปปุ่ม "พิมพ์ QR ใหม่" จะไม่ดึงชิ้นเหล่านี้มาอีก
+export function markQrPrinted(ids) {
+  return api.post('/assets/qr-printed', { ids }).then((res) => res.data)
+}

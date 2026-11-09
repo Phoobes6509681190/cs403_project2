@@ -74,7 +74,8 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     { username: "admin", name: "เจ้าหน้าที่พัสดุ", role: "admin", password: hash },
     { username: "member", name: "กรรมการ ก", role: "user", password: hash },
     { username: "holder", name: "อ.ผู้ถือครอง", role: "user", password: hash },
-    { username: "other", name: "บุคลากรอื่น", role: "user", password: hash }
+    { username: "other", name: "บุคลากรอื่น", role: "user", password: hash },
+    { username: "admin2", name: "Admin สำรอง", role: "admin", password: hash }
   ]);
 
   server = app.listen(0);
@@ -96,7 +97,7 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
   });
 
   await t.test("login: ได้ JWT, รหัสผิดได้ 401", async () => {
-    for (const u of ["admin", "member", "holder", "other"]) {
+    for (const u of ["admin", "member", "holder", "other", "admin2"]) {
       const r = await login(u);
       assert.strictEqual(r.status, 200, `login ${u}`);
       assert.ok(r.token, `cookie token ของ ${u}`);
@@ -138,6 +139,19 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     const Asset = require("../src/models/Asset");
     const raw = await Asset.findById(ids.asset13).lean();
     assert.strictEqual(raw.legacy["สภาพ"], "ปกติ", "เก็บค่าดิบจาก Excel ใน legacy");
+  });
+
+  await t.test("QR: พิมพ์เฉพาะชิ้นที่ยังไม่เคยพิมพ์ แล้วทำเครื่องหมายว่าพิมพ์แล้ว", async () => {
+    const first = await api("GET", "/assets?qr=unprinted&perPage=100", { token: tok.admin });
+    assert.strictEqual(first.data.total, 22);
+    assert.strictEqual(first.data.qrUnprinted, 6, "นับเฉพาะที่ยังอยู่ในสาขา (ไม่รวมตัดโอน)");
+    const ids = first.data.items.slice(0, 5).map((a) => a.id);
+    const m = await api("POST", "/assets/qr-printed", { token: tok.admin, body: { ids } });
+    assert.strictEqual(m.data.updated, 5);
+    const after = await api("GET", "/assets?qr=unprinted&perPage=100", { token: tok.admin });
+    assert.strictEqual(after.data.total, 17);
+    assert.ok(!after.data.items.some((a) => ids.includes(a.id)));
+    assert.strictEqual((await api("POST", "/assets/qr-printed", { token: tok.other, body: { ids } })).status, 403);
   });
 
   await t.test("user ทั่วไปแก้ไข/นำเข้าไม่ได้ (403)", async () => {
@@ -264,6 +278,19 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(prog.data.byResult.missing, 4);
   });
 
+  await t.test("ปิดรอบ: Admin ที่ไม่ได้เปิดรอบต้องใส่เหตุผล", async () => {
+    const no = await api("PUT", `/inspections/${ids.round}/close`, { token: tok.admin2 });
+    assert.strictEqual(no.status, 400);
+    const short = await api("PUT", `/inspections/${ids.round}/close`, { token: tok.admin2, body: { reason: "ปิด" } });
+    assert.strictEqual(short.status, 400);
+    const asOther = await api("GET", `/inspections/${ids.round}`, { token: tok.admin2 });
+    assert.strictEqual(asOther.data.closeNeedsReason, true);
+    const asOwner = await api("GET", `/inspections/${ids.round}`, { token: tok.admin });
+    assert.strictEqual(asOwner.data.closeNeedsReason, false);
+    assert.strictEqual(asOwner.data.createdBy.name, "เจ้าหน้าที่พัสดุ");
+    assert.strictEqual((await api("PUT", `/inspections/${ids.round}/close`, { token: tok.member })).status, 403);
+  });
+
   await t.test("ปิดรอบ: บันทึกผลต่อไม่ได้ (409)", async () => {
     const c = await api("PUT", `/inspections/${ids.round}/close`, { token: tok.admin });
     assert.strictEqual(c.status, 200);
@@ -286,6 +313,25 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     const d = await api("GET", "/reports/detail", { token: tok.admin });
     assert.strictEqual(d.data.items.length, 24);
     assert.strictEqual(d.data.inspectionYear, 2569);
+  });
+
+  await t.test("ปิดแทนพร้อมเหตุผล: บันทึกคนปิดและเหตุผล แสดงในรายงาน", async () => {
+    const r = await api("POST", "/inspections", { token: tok.admin, body: { budgetYear: 2570, committee: [{ userId: ids.member }] } });
+    assert.strictEqual(r.status, 201);
+    const c = await api("PUT", `/inspections/${r.data.id}/close`, { token: tok.admin2, body: { reason: "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้" } });
+    assert.strictEqual(c.status, 200);
+    const d = await api("GET", `/inspections/${r.data.id}`, { token: tok.admin });
+    assert.strictEqual(d.data.closedBy.name, "Admin สำรอง");
+    assert.strictEqual(d.data.closeReason, "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้");
+    const s = await api("GET", "/reports/summary", { token: tok.admin });
+    assert.strictEqual(s.data.inspection.closedBy, "Admin สำรอง");
+    assert.strictEqual(s.data.inspection.closeReason, "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้");
+    const all = await api("GET", "/inspections", { token: tok.admin });
+    assert.strictEqual(all.data.items.length, 2);
+    const latest = all.data.items[0];
+    assert.strictEqual(latest.closedByOther, true);
+    assert.strictEqual(latest.closeReason, "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้");
+    assert.strictEqual(all.data.items[1].closedByOther, false, "รอบแรกคนเปิดเป็นคนปิดเอง");
   });
 
   await t.test("ถังขยะ: ลบ → กู้คืน → ลบ → ลบถาวร", async () => {

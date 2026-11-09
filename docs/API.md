@@ -230,12 +230,16 @@ Error: `400` รหัสเดิมผิด / สั้นกว่า 8 ต�
 | `holderUser=me` | เฉพาะที่ผู้ใช้คนนี้ถือครอง |
 | `page`, `perPage` | แบ่งหน้า (ค่าเริ่มต้น 1, 20 · สูงสุด 200) |
 | `sort=-createdAt` | เรียงจากเพิ่มล่าสุด (ค่าเริ่มต้นเรียงตามปีในเลขครุภัณฑ์) |
+| `qr=unprinted` | เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR |
 
 ```json
 { "success": true, "items": [ Asset… ], "total": 22, "page": 1, "perPage": 20,
   "rooms": ["บร.2 ชั้น 1 ห้อง 107"], "budgets": ["งบพิเศษ"] }
 ```
-`rooms` / `budgets` = ตัวเลือกสำหรับ dropdown กรอง
+`rooms` / `budgets` = ตัวเลือกสำหรับ dropdown กรอง · `qrUnprinted` = จำนวนที่ยังไม่เคยพิมพ์ QR (ไม่รวมตัดโอน)
+
+#### `POST /assets/qr-printed` 🛡️
+`{ "ids": ["…", "…"] }` → `{ "success": true, "updated": 6 }` — ทำเครื่องหมายว่าพิมพ์สติกเกอร์ QR แล้ว (`qrPrintedAt`)
 
 #### `POST /assets` 🛡️ · `PUT /assets/:id` 🛡️
 ```json
@@ -412,12 +416,16 @@ cd backend && npm run reset-password -- <username>
 
 #### `PUT /inspections/:id/close` 🛡️
 ปิดรอบ ล็อกผล → `{ "success": true, "progress": { … } }` · `409` ถ้าปิดไปแล้ว
+- **Admin ที่เปิดรอบ** ปิดได้เลย
+- **Admin คนอื่น** ปิดแทนได้ แต่ต้องส่ง `{ "reason": "เหตุผลอย่างน้อย 5 ตัวอักษร" }` ไม่งั้นได้ `400`
+- รายละเอียดรอบ (`GET /inspections/:id`) มี `createdBy`, `closedBy`, `closeReason`, `canClose`, `closeNeedsReason`
 
 #### `POST /inspections/:id/committee` 🛡️
 `{ "members": ["userId", "userId"] }` — แทนที่รายชื่อเดิม (เฉพาะรอบที่ยังเปิด)
 
 #### `GET /inspections` 👤
-`{ items: [ { id, budgetYear, status, createdAt, closedAt, committeeCount, progress } ] }`
+`{ items: [ { id, budgetYear, status, createdAt, closedAt, createdBy, closedBy, closedByOther, closeReason, committee, committeeCount, progress } ] }`
+(`closedByOther: true` = Admin คนอื่นปิดแทน — `closeReason` คือเหตุผล)
 
 ### 3.8 รายงาน 👤
 

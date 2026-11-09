@@ -31,6 +31,9 @@ const itemDto = (it, inspection, user) => ({
 
 async function inspectionDto(inspection, user, { withItems = true } = {}) {
   const committeeUsers = await User.find({ _id: { $in: inspection.committee } }, { name: 1, username: 1 }).lean();
+  const people = await User.find({ _id: { $in: [inspection.createdBy, inspection.closedBy].filter(Boolean) } }, { name: 1 }).lean();
+  const nameOf = (id) => people.find((p) => String(p._id) === String(id))?.name || "";
+  const isOwner = String(inspection.createdBy) === String(user.userId);
   const committee = isCommittee(inspection, user);
   const viewAll = canViewAll(inspection, user);
 
@@ -48,6 +51,12 @@ async function inspectionDto(inspection, user, { withItems = true } = {}) {
     status: inspection.status,
     createdAt: inspection.createdAt,
     closedAt: inspection.closedAt || null,
+    createdBy: inspection.createdBy ? { id: String(inspection.createdBy), name: nameOf(inspection.createdBy) } : null,
+    closedBy: inspection.closedBy ? { id: String(inspection.closedBy), name: nameOf(inspection.closedBy) } : null,
+    closeReason: inspection.closeReason || "",
+    // ปิดรอบ: Admin ทุกคนกดได้ แต่ถ้าไม่ใช่คนเปิดรอบต้องใส่เหตุผล
+    canClose: inspection.status === "open" && user.role === "admin",
+    closeNeedsReason: !isOwner,
     committee: committeeUsers.map((u) => ({ id: String(u._id), name: u.name, username: u.username })),
     isCommittee: committee,
     // all = เห็นทุกชิ้น, mine = เฉพาะของที่ถือครอง
@@ -77,6 +86,9 @@ async function validCommittee(ids) {
 exports.list = async (req, res) => {
   try {
     const list = await Inspection.find().sort({ createdAt: -1 }).lean();
+    const ids = list.flatMap((i) => [i.createdBy, i.closedBy, ...i.committee]).filter(Boolean);
+    const users = await User.find({ _id: { $in: ids } }, { name: 1 }).lean();
+    const nameOf = (id) => users.find((u) => String(u._id) === String(id))?.name || "";
     const items = await Promise.all(
       list.map(async (i) => ({
         id: String(i._id),
@@ -84,6 +96,12 @@ exports.list = async (req, res) => {
         status: i.status,
         createdAt: i.createdAt,
         closedAt: i.closedAt || null,
+        createdBy: nameOf(i.createdBy),
+        closedBy: nameOf(i.closedBy),
+        closeReason: i.closeReason || "",
+        // ปิดแทน = คนปิดไม่ใช่คนเปิดรอบ
+        closedByOther: !!i.closedBy && String(i.closedBy) !== String(i.createdBy),
+        committee: i.committee.map(nameOf),
         committeeCount: i.committee.length,
         progress: await progressOf(i._id)
       }))
@@ -214,15 +232,22 @@ exports.progress = async (req, res) => {
   }
 };
 
-// PUT /api/inspections/:id/close (admin)
+// PUT /api/inspections/:id/close (admin) body: { reason? }
+// คนที่เปิดรอบปิดได้เลย — Admin คนอื่น "ปิดแทน" ได้เมื่อจำเป็น แต่ต้องระบุเหตุผล (อย่างน้อย 5 ตัวอักษร)
 exports.close = async (req, res) => {
   try {
     const inspection = await loadInspection(req, res);
     if (!inspection) return;
     if (inspection.status === "closed") return fail(res, 409, "รอบนี้ปิดไปแล้ว");
+    const isOwner = String(inspection.createdBy) === String(req.user.userId);
+    const reason = String(req.body?.reason || "").trim();
+    if (!isOwner && reason.length < 5) {
+      return fail(res, 400, "คุณไม่ได้เป็นคนเปิดรอบนี้ — ต้องระบุเหตุผลที่ปิดแทน (อย่างน้อย 5 ตัวอักษร)");
+    }
     inspection.status = "closed";
     inspection.closedAt = new Date();
     inspection.closedBy = req.user.userId;
+    inspection.closeReason = isOwner ? reason || undefined : reason;
     await inspection.save();
     res.json({ success: true, progress: await progressOf(inspection._id) });
   } catch (error) {

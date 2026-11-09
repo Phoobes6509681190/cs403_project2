@@ -28,8 +28,9 @@ export function getInspectionProgress(id) {
   return api.get(`/inspections/${id}/progress`).then((res) => res.data)
 }
 
-export function closeInspection(id) {
-  return api.put(`/inspections/${id}/close`).then((res) => res.data)
+// reason จำเป็นเมื่อ Admin ที่ไม่ได้เปิดรอบเป็นคนปิดแทน
+export function closeInspection(id, reason) {
+  return api.put(`/inspections/${id}/close`, reason ? { reason } : {}).then((res) => res.data)
 }
 
 export function appointCommittee(inspectionId, members) {

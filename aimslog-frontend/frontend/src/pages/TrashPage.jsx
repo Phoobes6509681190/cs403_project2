@@ -75,10 +75,6 @@ export default function TrashPage() {
       <Card className="p-5 flex flex-wrap items-center gap-4">
         <div className="flex-1 min-w-[240px]">
           <h2 className="font-semibold">สำรองข้อมูล</h2>
-          <p className="text-[12px] text-muted">
-            ดาวน์โหลดข้อมูลทั้งระบบเป็น Excel (ครุภัณฑ์ รวมที่อยู่ในถังขยะ, ประวัติ, ผลตรวจนับ, งบ, ผู้ใช้ — ไม่มีรหัสผ่าน)
-            <br />แนะนำให้สำรองทุกเดือน และทุกครั้งก่อนนำเข้าไฟล์ Excel
-          </p>
         </div>
         <Btn variant="primary" onClick={backup} disabled={backingUp}>
           <Icon name="download" /> {backingUp ? 'กำลังเตรียมไฟล์...' : 'ดาวน์โหลดไฟล์สำรอง'}
@@ -89,9 +85,6 @@ export default function TrashPage() {
         <div className="flex flex-wrap items-start gap-2 mb-3">
           <div className="flex-1 min-w-[240px]">
             <h2 className="font-semibold mb-1">ถังขยะ ({nf(items.length)})</h2>
-            <p className="text-[12px] text-muted">
-              ครุภัณฑ์ที่ถูกลบจะอยู่ที่นี่ กู้คืนพร้อมประวัติเดิมได้ — ถ้า <b>ลบถาวร</b> จะกู้คืนไม่ได้อีก (ควรดาวน์โหลดไฟล์สำรองก่อน)
-            </p>
           </div>
           {items.length > 0 && <Btn variant="danger" onClick={() => setToPurge('all')}>ล้างถังขยะ</Btn>}
         </div>

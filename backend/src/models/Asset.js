@@ -44,6 +44,8 @@ const assetSchema = new mongoose.Schema(
 
     status: { type: String, enum: STATUS_KEYS, default: "ok", index: true },
     lastInspectedAt: { type: Date },
+    // พิมพ์สติกเกอร์ QR แล้วเมื่อไหร่ (ว่าง = ยังไม่เคยพิมพ์ -> ใช้กรองพิมพ์เฉพาะชิ้นใหม่)
+    qrPrintedAt: { type: Date },
 
     // ค่าดิบจาก Excel ทั้งแถว — "ข้อมูลเก่าอย่าลบทิ้ง"
     legacy: { type: mongoose.Schema.Types.Mixed },

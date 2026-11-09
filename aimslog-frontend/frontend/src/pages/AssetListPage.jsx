@@ -31,6 +31,8 @@ export default function AssetListPage() {
   const [status, setStatus] = useState('')
   const [room, setRoom] = useState('')
   const [budget, setBudget] = useState('')
+  const [selected, setSelected] = useState([]) // id ที่ติ๊กไว้สำหรับพิมพ์ QR (จำข้ามหน้าได้)
+  const toggleSel = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
   const [page, setPage] = useState(1)
   const debouncedQ = useDebounce(q, 400)
 
@@ -151,13 +153,17 @@ export default function AssetListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-semibold mr-auto">รายการครุภัณฑ์ทั้งหมด</h2>
+        {canEdit && selected.length > 0 && (
+          <>
+            <Link to={`/assets/labels?ids=${selected.join(',')}`}>
+              <Btn>พิมพ์ QR ที่เลือก ({nf(selected.length)})</Btn>
+            </Link>
+            <button onClick={() => setSelected([])} className="text-[12px] text-muted hover:text-ink px-1">ล้างที่เลือก</button>
+          </>
+        )}
         {canEdit && (
-          <Link
-            to={`/assets/labels?${new URLSearchParams(
-              Object.entries({ q: debouncedQ, status, room, budget }).filter(([, v]) => v)
-            )}`}
-          >
-            <Btn>พิมพ์ QR ({nf(result.total || 0)})</Btn>
+          <Link to="/assets/labels?qr=unprinted">
+            <Btn>พิมพ์ QR ใหม่ ({nf(result.qrUnprinted || 0)})</Btn>
           </Link>
         )}
         {canEdit && (
@@ -216,6 +222,23 @@ export default function AssetListPage() {
               <table className="w-full min-w-[1150px] text-[13px]">
                 <thead>
                   <tr className="text-[12px] text-muted border-b border-line">
+                    {canEdit && (
+                      <th className="py-2.5 pr-2 w-8">
+                        <input
+                          type="checkbox"
+                          aria-label="เลือกทั้งหน้า"
+                          className="w-4 h-4"
+                          checked={result.items.length > 0 && result.items.every((a) => selected.includes(a.id))}
+                          onChange={(e) =>
+                            setSelected((s) =>
+                              e.target.checked
+                                ? [...new Set([...s, ...result.items.map((a) => a.id)])]
+                                : s.filter((id) => !result.items.some((a) => a.id === id))
+                            )
+                          }
+                        />
+                      </th>
+                    )}
                     {['ลำดับ', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">{h}</th>
                     ))}
@@ -223,7 +246,12 @@ export default function AssetListPage() {
                 </thead>
                 <tbody>
                   {result.items.map((a, i) => (
-                    <tr key={a.id} className="border-b border-line last:border-0 hover:bg-surface2">
+                    <tr key={a.id} className={`border-b border-line last:border-0 hover:bg-surface2 ${selected.includes(a.id) ? 'bg-brandsoft/50' : ''}`}>
+                      {canEdit && (
+                        <td className="py-3 pr-2">
+                          <input type="checkbox" aria-label="เลือก" className="w-4 h-4" checked={selected.includes(a.id)} onChange={() => toggleSel(a.id)} />
+                        </td>
+                      )}
                       <td className="py-3 pr-3 text-faint tabular-nums">{(page - 1) * PER_PAGE + i + 1}</td>
                       <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.location?.building || '—'}</td>
                       <td className="py-3 pr-3 text-muted">{a.location?.floor || '—'}</td>
@@ -310,7 +338,6 @@ export default function AssetListPage() {
             value={form.room}
             readOnly={hasParts(form)}
             placeholder="เช่น ห้องพักอาจารย์"
-            hint={hasParts(form) ? 'สร้างจาก ตึก/ชั้น/ห้อง ให้อัตโนมัติ — ถ้าต้องการพิมพ์เอง ให้ล้างช่อง ตึก/ชั้น/ห้อง' : 'ใช้เมื่อไม่มีเลขห้อง'}
             onChange={(e) => setForm({ ...form, room: e.target.value })}
           />
           <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
@@ -323,7 +350,7 @@ export default function AssetListPage() {
             }}
             options={[{ value: '', label: '— ไม่ผูกบัญชี —' }, ...users.map((u) => ({ value: u.id, label: u.name || u.username }))]}
           />
-          <Field label="งบประมาณ" value={form.budget} placeholder="เว้นว่าง = ดูจากเลขครุภัณฑ์" hint="ระบบอ่านงบจากตัวย่อในเลขครุภัณฑ์ให้อัตโนมัติ" onChange={(e) => setForm({ ...form, budget: e.target.value })} />
+          <Field label="งบประมาณ" value={form.budget} placeholder="เว้นว่าง = ดูจากเลขครุภัณฑ์" onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           <Field label="ราคา (บาท)" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           <SelectField
             label="สถานะ"

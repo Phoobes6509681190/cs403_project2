@@ -10,6 +10,7 @@ import { usePolling } from '../hooks/usePolling'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
 import { InspectButtons, INSPECT_ACTIONS } from '../components/InspectButtons'
+import RoundHistory from '../components/RoundHistory'
 import { STATUS } from '../data/statusConfig'
 import { nf, formatDateTimeTH } from '../utils/format'
 
@@ -21,6 +22,7 @@ export default function InspectionPage() {
   const [state, setState] = useState('loading')
   const [confirmClose, setConfirmClose] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [closeReason, setCloseReason] = useState('')
   const [submittingId, setSubmittingId] = useState(null)
   const [tab, setTab] = useState('pending')
   const [q, setQ] = useState('')
@@ -77,7 +79,7 @@ export default function InspectionPage() {
   const handleClose = async () => {
     setClosing(true)
     try {
-      await closeInspection(inspection.id)
+      await closeInspection(inspection.id, inspection.closeNeedsReason ? closeReason.trim() : undefined)
       toast.success('ปิดรอบตรวจนับเรียบร้อยแล้ว')
       setConfirmClose(false)
       load()
@@ -119,6 +121,7 @@ export default function InspectionPage() {
 
   if (state === 'empty') {
     return (
+      <div className="space-y-4">
       <Card className="p-8">
         <EmptyState message="ยังไม่มีรอบตรวจนับที่เปิดอยู่ในขณะนี้" />
         {role === 'admin' && (
@@ -129,6 +132,8 @@ export default function InspectionPage() {
           </div>
         )}
       </Card>
+      <RoundHistory />
+      </div>
     )
   }
 
@@ -148,27 +153,22 @@ export default function InspectionPage() {
               {!isOpen && <span className="ml-1 text-[12px] font-normal text-muted">(ปิดแล้ว {formatDateTimeTH(inspection.closedAt)})</span>}
             </p>
             <p className="text-[12px] text-muted">
+              เปิดรอบโดย {inspection.createdBy?.name || '—'}
+              {!isOpen && inspection.closedBy && <> · ปิดรอบโดย {inspection.closedBy.name}</>}
+            </p>
+            {!isOpen && inspection.closeReason && (
+              <p className="text-[12px] text-warn">ปิดแทนผู้เปิดรอบ — เหตุผล: {inspection.closeReason}</p>
+            )}
+            <p className="text-[12px] text-muted">
               กรรมการ: {inspection.committee.map((c) => c.name).join(', ') || '—'}
             </p>
-            {mine && isOpen && (
-              <p className="text-[12px] text-brand mt-1">
-                คุณไม่ได้เป็นกรรมการรอบนี้ — ยืนยันสภาพครุภัณฑ์ที่คุณถือครองได้ด้านล่าง
-              </p>
-            )}
-            {!mine && !inspection.isCommittee && isOpen && (
-              <p className="text-[12px] text-warn mt-1">
-                คุณดูความคืบหน้าได้อย่างเดียว — บันทึกผลได้เฉพาะกรรมการที่ได้รับแต่งตั้ง (กันการกดผิดแทนกรรมการ)
-              </p>
-            )}
           </div>
-          {role === 'admin' && isOpen && (
-            <Btn variant="danger" onClick={() => setConfirmClose(true)}>ปิดรอบ</Btn>
+          {inspection.canClose && (
+            <Btn variant="danger" onClick={() => setConfirmClose(true)}>
+              {inspection.closeNeedsReason ? 'ปิดรอบแทน' : 'ปิดรอบ'}
+            </Btn>
           )}
         </div>
-        <p className="mt-3 text-[12px] text-muted bg-surface2 rounded-xl px-3 py-2">
-          รอบตรวจนับ = การตรวจสอบพัสดุประจำปีงบประมาณ — ครุภัณฑ์แต่ละชิ้นนับ <b>1 ครั้งต่อรอบ</b> เพื่อยืนยันว่ายังอยู่และสภาพเป็นอย่างไร
-          ชิ้นที่ตรวจแล้วจะย้ายไปแท็บ "ตรวจแล้ว" (กด "แก้ไขผล" ได้ถ้าบันทึกผิด) · เมื่อปิดรอบ ผลจะล็อกและใช้ออกรายงานประจำปี
-        </p>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />
           {!mine && progress?.selfChecked > 0 && (
@@ -212,7 +212,7 @@ export default function InspectionPage() {
         {room && isOpen && inspection.isCommittee && roomPending > 0 && (
           <div className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-3 flex flex-wrap items-center gap-3">
             <p className="text-[12px] text-muted flex-1 min-w-[220px]">
-              <b className="text-ink">ตรวจทั้งห้อง:</b> กดชิ้นที่ต่างจากส่วนใหญ่ทีละชิ้นก่อน แล้วบันทึกผลให้ที่เหลือ {nf(roomPending)} ชิ้นในครั้งเดียว
+              <b className="text-ink">ตรวจทั้งห้อง</b> · เหลือ {nf(roomPending)} ชิ้น
             </p>
             <select
               value={bulkStatus}
@@ -283,6 +283,8 @@ export default function InspectionPage() {
         )}
       </Card>
 
+      <RoundHistory excludeId={inspection.id} />
+
       <ConfirmDialog
         open={bulkOpen}
         title={`ยืนยันห้อง ${room || 'ไม่ระบุสถานที่'}`}
@@ -300,9 +302,25 @@ export default function InspectionPage() {
         confirmLabel="ปิดรอบ"
         danger
         loading={closing}
+        disabled={inspection.closeNeedsReason && closeReason.trim().length < 5}
         onConfirm={handleClose}
         onCancel={() => setConfirmClose(false)}
-      />
+      >
+        {inspection.closeNeedsReason && (
+          <label className="block mt-3">
+            <span className="text-[13px] text-warn">
+              รอบนี้เปิดโดย {inspection.createdBy?.name || 'Admin คนอื่น'} — ถ้าปิดแทน ต้องระบุเหตุผล (บันทึกไว้ให้ตรวจสอบภายหลัง)
+            </span>
+            <textarea
+              rows={3}
+              value={closeReason}
+              onChange={(e) => setCloseReason(e.target.value)}
+              placeholder="เช่น ผู้เปิดรอบลาป่วย และต้องส่งรายงานภายในวันนี้"
+              className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-[13px] placeholder:text-faint focus:border-brand"
+            />
+          </label>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }
