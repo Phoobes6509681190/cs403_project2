@@ -15,8 +15,21 @@ const cookieBase = () => ({
 
 const publicUser = (u) => ({
   id: u._id, username: u.username, name: u.name, role: u.role,
-  position: u.position || "", email: u.email || "", phone: u.phone || "", bio: u.bio || "", avatar: u.avatar || ""
+  position: u.position || "", email: u.email || "", phone: u.phone || "", bio: u.bio || "", avatar: u.avatar || "",
+  mustChangePassword: !!u.mustChangePassword
 });
+
+// ออก session ใหม่ (JWT ใน httpOnly cookie + CSRF token)
+// mcp = must change password → middleware ยอมให้เรียกได้เฉพาะ /api/auth/* จนกว่าจะเปลี่ยนรหัส
+function issueSession(res, user) {
+  const token = jwt.sign(
+    { userId: user._id, username: user.username, name: user.name, role: user.role, ...(user.mustChangePassword ? { mcp: true } : {}) },
+    process.env.JWT_SECRET,
+    { expiresIn: `${SESSION_HOURS}h` }
+  );
+  res.cookie("token", token, { ...cookieBase(), httpOnly: true });
+  res.cookie("csrfToken", crypto.randomBytes(24).toString("hex"), { ...cookieBase(), httpOnly: false });
+}
 exports.publicUser = publicUser;
 
 exports.login = async (req, res) => {
@@ -32,14 +45,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
     }
 
-    const token = jwt.sign(
-      { userId: user._id, username: user.username, name: user.name, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: `${SESSION_HOURS}h` }
-    );
-
-    res.cookie("token", token, { ...cookieBase(), httpOnly: true });
-    res.cookie("csrfToken", crypto.randomBytes(24).toString("hex"), { ...cookieBase(), httpOnly: false });
+    issueSession(res, user);
 
     res.json({ success: true, user: publicUser(user) });
   } catch (error) {
@@ -83,8 +89,10 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "รหัสผ่านเดิมไม่ถูกต้อง" });
     }
     user.password = await bcrypt.hash(String(newPassword), 10);
+    user.mustChangePassword = false;
     await user.save();
-    res.json({ success: true });
+    issueSession(res, user); // token ใหม่ที่ไม่มีเงื่อนไข "ต้องเปลี่ยนรหัส"
+    res.json({ success: true, user: publicUser(user) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

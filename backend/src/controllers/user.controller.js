@@ -33,7 +33,8 @@ exports.create = async (req, res) => {
       name: String(name).trim(),
       position: position ? String(position).trim() : undefined,
       role,
-      password: await bcrypt.hash(String(password), 10)
+      password: await bcrypt.hash(String(password), 10),
+      mustChangePassword: true // รหัสเริ่มต้นที่ Admin ตั้ง -> ผู้ใช้ต้องเปลี่ยนเองตอน login ครั้งแรก
     });
     res.status(201).json(dto(user));
   } catch (error) {
@@ -72,6 +73,8 @@ exports.resetPassword = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return fail(res, 404, "ไม่พบผู้ใช้");
     user.password = await bcrypt.hash(String(newPassword), 10);
+    user.mustChangePassword = true;
+    user.passwordResetAt = new Date();
     await user.save();
     res.json({ success: true });
   } catch (error) {

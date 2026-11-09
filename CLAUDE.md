@@ -30,7 +30,8 @@ Deploy: Frontend บน Vercel, Backend บน Render
 ## คำสั่ง
 ```bash
 cd backend && npm install && cp .env.example .env   # ใส่ MONGO_URI, JWT_SECRET
-npm run seed     # สร้าง admin/staff (รหัส 123456) + ตารางงบ
+npm run seed     # สร้าง admin/staff (รหัส 123456 — บังคับเปลี่ยนตอน login ครั้งแรก) + ตารางงบ
+npm run reset-password -- <username>   # กู้รหัสฉุกเฉิน: สุ่มรหัสชั่วคราว + บังคับเปลี่ยนตอน login
 npm run dev      # API ที่ :4000
 npm test         # unit + HTTP + integration (integration ใช้ MongoDB ชั่วคราว — ครั้งแรกดาวน์โหลดตัว MongoDB, เปิดไม่ได้จะข้าม)
 node samples/make-sample.js   # สร้างไฟล์ตัวอย่างสำหรับทดสอบ Import

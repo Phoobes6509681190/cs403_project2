@@ -327,6 +327,33 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(self.status, 400);
   });
 
+  await t.test("รหัสชั่วคราวจาก Admin: ต้องเปลี่ยนรหัสก่อนใช้งาน แล้วได้ session ใหม่", async () => {
+    const c = await api("POST", "/users", { token: tok.admin, body: { username: "temp1", name: "ผู้ใช้รหัสชั่วคราว", password: "Temp12345", role: "user" } });
+    assert.strictEqual(c.status, 201);
+
+    const l = await login("temp1", "Temp12345");
+    assert.strictEqual(l.status, 200);
+    assert.strictEqual(l.data.user.mustChangePassword, true);
+    const blocked = await api("GET", "/assets", { token: l.token });
+    assert.strictEqual(blocked.status, 403);
+    assert.strictEqual(blocked.data.code, "PASSWORD_CHANGE_REQUIRED");
+
+    const ch = await api("PUT", "/auth/password", { token: l.token, body: { currentPassword: "Temp12345", newPassword: "Mine12345" } });
+    assert.strictEqual(ch.status, 200);
+    assert.strictEqual(ch.data.user.mustChangePassword, false);
+    const fresh = (ch.headers.getSetCookie?.() || []).find((x) => x.startsWith("token="));
+    assert.ok(fresh, "ได้ token ใหม่หลังเปลี่ยนรหัส");
+    const ok = await api("GET", "/assets", { token: fresh.split(";")[0].slice(6) });
+    assert.strictEqual(ok.status, 200);
+
+    // Admin ตั้งรหัสใหม่ให้ -> กลับไปต้องเปลี่ยนรหัสอีกครั้ง
+    await api("PUT", `/users/${c.data.id}/password`, { token: tok.admin, body: { newPassword: "Again12345" } });
+    const l2 = await login("temp1", "Again12345");
+    assert.strictEqual(l2.data.user.mustChangePassword, true);
+    const User = require("../src/models/User");
+    assert.ok((await User.findById(c.data.id)).passwordResetAt);
+  });
+
   await t.test("โปรไฟล์และรหัสผ่าน", async () => {
     const p = await api("PUT", "/auth/profile", { token: tok.member, body: { position: "อาจารย์", email: "ผิดรูปแบบ" } });
     assert.strictEqual(p.status, 400);

@@ -15,6 +15,7 @@ import CommitteePage from './pages/CommitteePage'
 import InspectionPage from './pages/InspectionPage'
 import ReportPage from './pages/ReportPage'
 import ProfilePage from './pages/ProfilePage'
+import ForceChangePasswordPage from './pages/ForceChangePasswordPage'
 import UsersPage from './pages/UsersPage'
 import TrashPage from './pages/TrashPage'
 import ForbiddenPage from './pages/ForbiddenPage'
@@ -39,6 +40,7 @@ export default function App() {
 
         {/* ทุก route ข้างล่างนี้ต้องล็อกอินก่อนเท่านั้น (ดู ProtectedRoute.jsx) */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/change-password" element={<ForceChangePasswordPage />} />
           <Route element={<AppLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />

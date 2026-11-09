@@ -170,7 +170,7 @@ export default function UsersPage() {
           <Field label="ชื่อ-สกุล" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Field label="ตำแหน่ง" placeholder="เช่น อาจารย์, นักวิชาการ" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
           <Field label="ชื่อผู้ใช้ (ใช้ login)" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          <Field label="รหัสผ่านเริ่มต้น" type="text" required minLength={MIN} hint={`อย่างน้อย ${MIN} ตัว — แจ้งให้ผู้ใช้เปลี่ยนเองภายหลัง`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <Field label="รหัสผ่านเริ่มต้น" type="text" required minLength={MIN} hint={`อย่างน้อย ${MIN} ตัว — ผู้ใช้จะถูกบังคับให้ตั้งรหัสใหม่ตอน login ครั้งแรก`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <SelectField
             label="สิทธิ์"
             value={form.role}
@@ -192,7 +192,7 @@ export default function UsersPage() {
         }
       >
         <form id="reset-pass" onSubmit={doReset}>
-          <Field label="รหัสผ่านใหม่" type="text" required minLength={MIN} hint="แจ้งรหัสนี้ให้ผู้ใช้ แล้วให้เปลี่ยนเองในหน้าโปรไฟล์" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
+          <Field label="รหัสผ่านใหม่" type="text" required minLength={MIN} hint="แจ้งรหัสนี้ให้ผู้ใช้ — ระบบจะบังคับให้ตั้งรหัสใหม่ตอน login" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
         </form>
       </Modal>
 

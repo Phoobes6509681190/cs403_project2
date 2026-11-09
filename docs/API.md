@@ -24,6 +24,8 @@
 - คำขอที่**แก้ข้อมูล** (POST / PUT / DELETE) จากหน้าเว็บ ต้องส่ง header `X-CSRF-Token` ให้ตรงกับ cookie `csrfToken` (double-submit cookie)
 - เครื่องมืออย่าง Postman ใช้ `Authorization: Bearer <JWT>` แทนได้ — แบบนี้ไม่ต้องส่ง CSRF
 - ทุก endpoint ยกเว้น `/health`, `/auth/login`, `/auth/logout` ต้อง login
+- บัญชีที่ใช้**รหัสชั่วคราว** (`mustChangePassword: true` — Admin สร้าง/ตั้งรหัสให้ หรือใช้สคริปต์กู้รหัส) เรียกได้เฉพาะ `/auth/*`
+  endpoint อื่นตอบ `403` พร้อม `"code": "PASSWORD_CHANGE_REQUIRED"` จนกว่าจะเปลี่ยนรหัสผ่าน `PUT /auth/password`
 
 ### 1.2 สิทธิ์ (Role)
 
@@ -163,7 +165,8 @@ Response `200` (+ `Set-Cookie: token=…; HttpOnly` และ `csrfToken=…`)
 {
   "success": true,
   "user": { "id": "…", "username": "admin", "name": "เจ้าหน้าที่พัสดุ", "role": "admin",
-            "position": "", "email": "", "phone": "", "bio": "", "avatar": "" }
+            "position": "", "email": "", "phone": "", "bio": "", "avatar": "",
+            "mustChangePassword": false }
 }
 ```
 Error: `400` ไม่กรอกครบ · `401` ชื่อผู้ใช้/รหัสผ่านผิด หรือบัญชีถูกปิด
@@ -178,6 +181,7 @@ Error: `400` ไม่กรอกครบ · `401` ชื่อผู้ใช
 ```json
 { "currentPassword": "รหัสเดิม", "newPassword": "รหัสใหม่อย่างน้อย8ตัว" }
 ```
+→ `{ "success": true, "user": { …, "mustChangePassword": false } }` และ**ออก session ใหม่** (cookie `token` ใหม่ที่ไม่มีเงื่อนไขรหัสชั่วคราว)
 Error: `400` รหัสเดิมผิด / สั้นกว่า 8 ตัว / ซ้ำรหัสเดิม
 
 #### `PUT /auth/profile` 👤
@@ -327,6 +331,13 @@ Asset + ข้อมูลรอบตรวจนับที่เปิดอ
 | `PUT /users/:id/password` | `{ newPassword (≥8) }` | `{ success: true }` |
 
 บัญชีที่ปิด (`active: false`) login ไม่ได้ แต่ประวัติที่เคยบันทึกยังอยู่
+บัญชีที่ Admin สร้างหรือตั้งรหัสให้ จะเป็น `mustChangePassword: true` — ผู้ใช้ต้องตั้งรหัสของตัวเองตอน login
+
+**Admin คนเดียวลืมรหัส:** รันสคริปต์กู้รหัสบนเครื่องที่มี `MONGO_URI` (ไม่มี API บนเว็บ)
+```bash
+cd backend && npm run reset-password -- <username>
+```
+สคริปต์ให้พิมพ์ `yes` ยืนยัน สุ่มรหัสชั่วคราวให้และแสดงครั้งเดียว แล้วบังคับเปลี่ยนรหัสตอน login
 
 ### 3.7 ตรวจนับ
 

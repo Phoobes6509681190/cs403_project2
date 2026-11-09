@@ -97,3 +97,15 @@ test("ลบถาวร / ล้างถังขยะ = admin เท่า�
   assert.strictEqual((await fetch(`${base}/assets/trash`, { method: "DELETE", headers: h })).status, 403);
   assert.strictEqual((await fetch(`${base}/assets/64b000000000000000000003/permanent`, { method: "DELETE", headers: h })).status, 403);
 });
+
+test("บัญชีที่ต้องเปลี่ยนรหัส (mcp) เรียก API อื่นไม่ได้ จนกว่าจะเปลี่ยนรหัส", async () => {
+  const t = jwt.sign({ userId: "64b000000000000000000001", username: "x", name: "x", role: "admin", mcp: true }, "test-secret");
+  const r = await fetch(`${base}/assets`, { headers: { Authorization: `Bearer ${t}` } });
+  assert.strictEqual(r.status, 403);
+  assert.strictEqual((await r.json()).code, "PASSWORD_CHANGE_REQUIRED");
+  const b = await fetch(`${base}/backup`, { headers: { Authorization: `Bearer ${t}` } });
+  assert.strictEqual(b.status, 403);
+  // /api/auth/* ยังเรียกได้ (เช่น เปลี่ยนรหัส) — ตอบ 400 เพราะไม่ส่งข้อมูล ไม่ใช่ 403
+  const p = await fetch(`${base}/auth/password`, { method: "PUT", headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" }, body: "{}" });
+  assert.strictEqual(p.status, 400);
+});

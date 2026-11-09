@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema(
     // ปิดบัญชีแทนการลบ — ประวัติที่ผู้ใช้คนนี้เคยบันทึกยังอยู่ครบ
     active: { type: Boolean, default: true },
 
+    // ต้องเปลี่ยนรหัสผ่านก่อนใช้งาน — ตั้งเมื่อ Admin สร้างบัญชี/ตั้งรหัสให้ หรือใช้สคริปต์กู้รหัส
+    mustChangePassword: { type: Boolean, default: false },
+    passwordResetAt: { type: Date },
+
     role: {
       type: String,
       enum: ["admin", "user"],
