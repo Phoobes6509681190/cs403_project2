@@ -367,6 +367,71 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual((await login("member", "NewPass123")).status, 200);
   });
 
+  await t.test("ล็อกบัญชี: ผิด 5 ครั้งเข้าไม่ได้แม้รหัสถูก, Admin ปลดล็อกได้, มีประวัติ login", async () => {
+    const c = await api("POST", "/users", { token: tok.admin, body: { username: "victim", name: "บัญชีถูกเดา", password: "Victim123", role: "user" } });
+    for (let i = 0; i < 4; i++) assert.strictEqual((await login("victim", `guess${i}`)).status, 401);
+    assert.strictEqual((await login("victim", "guess5")).status, 429, "ครั้งที่ 5 ล็อก");
+    assert.strictEqual((await login("victim", "Victim123")).status, 429, "รหัสถูกก็ยังเข้าไม่ได้ระหว่างล็อก");
+
+    const list = await api("GET", "/users", { token: tok.admin });
+    assert.strictEqual(list.data.items.find((u) => u.id === c.data.id).locked, true);
+    await api("PUT", `/users/${c.data.id}/unlock`, { token: tok.admin });
+    assert.strictEqual((await login("victim", "Victim123")).status, 200);
+
+    const logs = await api("GET", "/login-logs?username=victim", { token: tok.admin });
+    const reasons = logs.data.items.map((l) => l.reason);
+    assert.ok(reasons.includes("wrong_password"));
+    assert.ok(reasons.includes("locked"));
+    assert.ok(reasons.includes("ok"));
+    assert.ok(logs.data.items.every((l) => l.ip));
+    assert.strictEqual((await api("GET", "/login-logs", { token: tok.member })).status, 403);
+  });
+
+  await t.test("MFA: ตั้งค่า → login ต้องใส่รหัส 6 หลัก → รหัสสำรองใช้ได้ครั้งเดียว → Admin รีเซ็ตได้", async () => {
+    const { authenticator } = require("otplib");
+    await api("POST", "/users", { token: tok.admin, body: { username: "mfa1", name: "ใช้ MFA", password: "Mfa123456", role: "admin" } });
+    let l = await login("mfa1", "Mfa123456");
+    const ch = await api("PUT", "/auth/password", { token: l.token, body: { currentPassword: "Mfa123456", newPassword: "Mfa654321" } });
+    const t1 = (ch.headers.getSetCookie?.() || []).find((x) => x.startsWith("token=")).split(";")[0].slice(6);
+
+    const setup = await api("POST", "/auth/mfa/setup", { token: t1 });
+    assert.match(setup.data.otpauthUrl, /^otpauth:\/\/totp\//);
+    assert.strictEqual((await api("POST", "/auth/mfa/enable", { token: t1, body: { code: "000000" } })).status === 400 ||
+      authenticator.generate(setup.data.secret) === "000000", true);
+    const en = await api("POST", "/auth/mfa/enable", { token: t1, body: { code: authenticator.generate(setup.data.secret) } });
+    assert.strictEqual(en.status, 200);
+    assert.strictEqual(en.data.backupCodes.length, 8);
+
+    // login: รหัสผ่านถูก -> ยังไม่ได้ session ต้องยืนยัน MFA
+    l = await login("mfa1", "Mfa654321");
+    assert.strictEqual(l.data.mfaRequired, true);
+    assert.strictEqual(l.token, null, "ยังไม่ออก cookie session");
+    assert.strictEqual((await api("GET", "/assets", { token: l.data.mfaToken })).status, 401, "mfaToken ใช้แทน session ไม่ได้");
+
+    const bad = await api("POST", "/auth/mfa/verify", { body: { mfaToken: l.data.mfaToken, code: "12345" } });
+    assert.strictEqual(bad.status, 401);
+    const good = await api("POST", "/auth/mfa/verify", { body: { mfaToken: l.data.mfaToken, code: authenticator.generate(setup.data.secret) } });
+    assert.strictEqual(good.status, 200);
+    assert.ok((good.headers.getSetCookie?.() || []).some((x) => x.startsWith("token=")));
+
+    // รหัสสำรอง
+    const backup = en.data.backupCodes[0];
+    l = await login("mfa1", "Mfa654321");
+    const b1 = await api("POST", "/auth/mfa/verify", { body: { mfaToken: l.data.mfaToken, code: backup } });
+    assert.strictEqual(b1.status, 200);
+    assert.strictEqual(b1.data.backupCodesLeft, 7);
+    l = await login("mfa1", "Mfa654321");
+    assert.strictEqual((await api("POST", "/auth/mfa/verify", { body: { mfaToken: l.data.mfaToken, code: backup } })).status, 401, "ใช้ซ้ำไม่ได้");
+
+    // Admin อีกคนรีเซ็ต MFA ให้ (ทำมือถือหาย)
+    const users = await api("GET", "/users", { token: tok.admin });
+    const mfaUser = users.data.items.find((u) => u.username === "mfa1");
+    assert.strictEqual(mfaUser.mfaEnabled, true);
+    await api("PUT", `/users/${mfaUser.id}/mfa-reset`, { token: tok.admin });
+    l = await login("mfa1", "Mfa654321");
+    assert.ok(l.token, "login ได้เลยโดยไม่ต้องใช้ MFA");
+  });
+
   await t.test("สำรองข้อมูล: ได้ไฟล์ Excel ที่มีทุก sheet และไม่มีรหัสผ่าน", async () => {
     const r = await api("GET", "/backup", { token: tok.admin });
     assert.strictEqual(r.status, 200);

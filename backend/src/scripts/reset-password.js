@@ -7,6 +7,7 @@
 // - รันได้เฉพาะเครื่องที่มี MONGO_URI ใน .env (คนที่เข้าฐานข้อมูลได้อยู่แล้ว) — ไม่มี API บนเว็บ
 // - ไม่รับรหัสใหม่ทาง command line (กันรหัสค้างใน history) — สุ่มรหัสชั่วคราวให้และแสดงครั้งเดียว
 // - ต้องพิมพ์ yes ยืนยันก่อน และบัญชีต้องเปลี่ยนรหัสทันทีที่ login ครั้งถัดไป
+// - ปลดล็อกบัญชี และปิด MFA ให้ (กรณีทำมือถือหายด้วย)
 require("dotenv").config();
 require("../config/dns");
 const crypto = require("crypto");
@@ -56,6 +57,15 @@ async function main() {
   user.mustChangePassword = true;
   user.passwordResetAt = new Date();
   user.active = true;
+  user.failedLogins = 0;
+  user.lockedUntil = undefined;
+  if (user.mfaEnabled) {
+    // ลืมรหัสมักมาพร้อมทำมือถือหาย — ปิด MFA ให้ แล้วให้เปิดใหม่หลังเข้าระบบได้
+    user.mfaEnabled = false;
+    user.mfaSecret = undefined;
+    user.mfaBackupCodes = [];
+    console.log("ปิด MFA ของบัญชีนี้แล้ว — เปิดใหม่ได้ที่หน้าโปรไฟล์หลังเข้าระบบ");
+  }
   await user.save();
 
   console.log("\n✅ ตั้งรหัสชั่วคราวแล้ว (แสดงครั้งเดียว — จดไว้ก่อนปิดหน้าต่าง)");

@@ -13,6 +13,8 @@ const authMiddleware = (req, res, next) => {
 
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
+    // token เฉพาะทาง (เช่น mfa = รอยืนยันรหัส 6 หลัก) ใช้แทน session ไม่ได้ — กันข้ามขั้น MFA
+    if (req.user.purpose) throw new Error("not a session token");
     req.authViaCookie = !bearer && !!req.cookies?.token;
     next();
   } catch {

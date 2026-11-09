@@ -34,6 +34,16 @@ const userSchema = new mongoose.Schema(
     mustChangePassword: { type: Boolean, default: false },
     passwordResetAt: { type: Date },
 
+    // กันเดารหัส: login ผิดติดกัน 5 ครั้ง -> ล็อก 15 นาที
+    failedLogins: { type: Number, default: 0 },
+    lockedUntil: { type: Date },
+
+    // ยืนยัน 2 ขั้นตอน (TOTP — Google Authenticator / Microsoft Authenticator)
+    mfaEnabled: { type: Boolean, default: false },
+    mfaSecret: { type: String },
+    mfaPendingSecret: { type: String }, // ระหว่างตั้งค่า (ยังไม่ยืนยันรหัส)
+    mfaBackupCodes: [{ type: String }], // เก็บแบบ hash ใช้ได้ครั้งเดียว
+
     role: {
       type: String,
       enum: ["admin", "user"],

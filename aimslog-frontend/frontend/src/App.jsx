@@ -18,6 +18,7 @@ import ProfilePage from './pages/ProfilePage'
 import ForceChangePasswordPage from './pages/ForceChangePasswordPage'
 import UsersPage from './pages/UsersPage'
 import TrashPage from './pages/TrashPage'
+import LoginLogsPage from './pages/LoginLogsPage'
 import ForbiddenPage from './pages/ForbiddenPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="/inspection/committee" element={<CommitteePage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/trash" element={<TrashPage />} />
+              <Route path="/login-logs" element={<LoginLogsPage />} />
             </Route>
 
             <Route path="/inspection" element={<InspectionPage />} />

@@ -4,11 +4,13 @@ import { Card, Btn, StatCard, StatusPill, RoomBars, ProgressBar, LoadingState, E
 import { getReportSummary } from '../services/reportService'
 import { getAssets } from '../services/assetService'
 import { pct, nf } from '../utils/format'
+import { useAuth } from '../hooks/useAuth'
 
 export default function Dashboard() {
   const [summary, setSummary] = useState(null)
   const [latest, setLatest] = useState([])
   const [state, setState] = useState('loading') // loading | ready | error
+  const { user } = useAuth()
 
   const load = async () => {
     setState('loading')
@@ -38,6 +40,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
+      {user?.role === 'admin' && !user?.mfaEnabled && (
+        <Link to="/profile?tab=security" className="block">
+          <Card className="p-4 border-warn/40 bg-warnsoft text-[13px] text-warn hover:opacity-90">
+            บัญชี Admin ของคุณยังไม่ได้เปิดยืนยันตัวตน 2 ขั้นตอน (MFA) — แนะนำให้เปิดเพื่อกันกรณีรหัสผ่านหลุด <b>เปิดใช้ →</b>
+          </Card>
+        </Link>
+      )}
       {inspection?.status === 'open' && (
         <Link to="/inspection" className="block">
           <Card className="p-4 hover:bg-surface2">

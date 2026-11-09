@@ -20,6 +20,8 @@ Deploy: Frontend บน Vercel, Backend บน Render
 
 ## ข้อตกลงทางเทคนิค
 - Auth: JWT ใน **httpOnly cookie** `token` + CSRF double-submit (`csrfToken` cookie ↔ header `X-CSRF-Token`), อายุ 8 ชม.
+  ล็อกบัญชีเมื่อผิด 5 ครั้ง (15 นาที) + จำกัดต่อ IP, บันทึก `LoginLog` (180 วัน), MFA แบบ TOTP (otplib) + รหัสสำรอง,
+  `mustChangePassword` สำหรับรหัสชั่วคราว — JWT ที่มี `purpose` (เช่น mfa) ใช้เป็น session ไม่ได้
   Postman ใช้ `Authorization: Bearer` ได้ · Frontend เรียก `/api` ผ่าน proxy โดเมนเดียวกัน
   (dev: `vite.config.js` proxy → :4000, prod: `vercel.json` rewrites → Render)
 - Response ของ asset ใช้ชื่อฟิลด์ฝั่ง Frontend (`code, cat, room, owner, ...`) — แปลงใน `backend/src/services/assetDto.js`

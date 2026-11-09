@@ -18,3 +18,16 @@ export function resetUserPassword(userId, newPassword) {
 export function updateUser(userId, payload) {
   return api.put(`/users/${userId}`, payload).then((res) => res.data)
 }
+
+// ปิด MFA ให้ผู้ใช้ที่ทำมือถือหาย / ปลดล็อกบัญชีที่ใส่รหัสผิดเกินกำหนด
+export function resetUserMfa(userId) {
+  return api.put(`/users/${userId}/mfa-reset`).then((res) => res.data)
+}
+export function unlockUser(userId) {
+  return api.put(`/users/${userId}/unlock`).then((res) => res.data)
+}
+
+export function getLoginLogs(params = {}) {
+  // params: { username, success, page, perPage }
+  return api.get('/login-logs', { params }).then((res) => res.data)
+}

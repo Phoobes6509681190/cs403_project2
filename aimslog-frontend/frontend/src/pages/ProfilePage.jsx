@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import Icon from '../components/icon'
 import { Card, Btn, Field, Avatar, RolePill, StatusPill, EmptyState, useToast } from '../components/UI'
 import { useAuth } from '../hooks/useAuth'
-import { updateProfile, changePassword } from '../services/authService'
+import { QRCodeSVG } from 'qrcode.react'
+import { updateProfile, changePassword, mfaSetup, mfaEnable, mfaDisable, mfaNewBackupCodes } from '../services/authService'
 import { getAssets } from '../services/assetService'
 import { nf } from '../utils/format'
 
@@ -29,7 +30,7 @@ function resizeImage(file, size = 256) {
 export default function ProfilePage() {
   const { user, role, updateUser } = useAuth()
   const toast = useToast()
-  const [tab, setTab] = useState('assets')
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'assets')
   const fileRef = useRef(null)
 
   const [assets, setAssets] = useState({ items: [], total: 0 })
@@ -90,7 +91,7 @@ export default function ProfilePage() {
           {[
             ['assets', 'ครุภัณฑ์ที่ถือครอง'],
             ['edit', 'แก้ไขโปรไฟล์'],
-            ['password', 'รหัสผ่าน'],
+            ['security', 'ความปลอดภัย'],
           ].map(([k, label]) => (
             <button
               key={k}
@@ -124,7 +125,12 @@ export default function ProfilePage() {
       )}
 
       {tab === 'edit' && <EditProfile user={user} onSave={save} onRemoveAvatar={() => save({ avatar: '' }, 'ลบรูปโปรไฟล์แล้ว')} />}
-      {tab === 'password' && <PasswordForm />}
+      {tab === 'security' && (
+        <>
+          <MfaCard user={user} onChange={updateUser} />
+          <PasswordForm />
+        </>
+      )}
     </div>
   )
 }
@@ -213,6 +219,118 @@ function PasswordForm() {
           {saving ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}
         </Btn>
       </form>
+    </Card>
+  )
+}
+
+// ยืนยัน 2 ขั้นตอนด้วยแอป Authenticator (TOTP) — ฟรี ไม่ต้องใช้ SMS
+function MfaCard({ user, onChange }) {
+  const toast = useToast()
+  const [step, setStep] = useState('idle') // idle | scan | codes
+  const [setup, setSetup] = useState(null)
+  const [code, setCode] = useState('')
+  const [codes, setCodes] = useState([])
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const run = async (fn) => {
+    setBusy(true)
+    try {
+      await fn()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ทำรายการไม่สำเร็จ')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const start = () => run(async () => {
+    setSetup(await mfaSetup())
+    setStep('scan')
+  })
+  const confirm = (e) => {
+    e.preventDefault()
+    run(async () => {
+      const r = await mfaEnable(code.trim())
+      onChange(r.user)
+      setCodes(r.backupCodes)
+      setStep('codes')
+      setCode('')
+      toast.success('เปิดใช้ MFA แล้ว')
+    })
+  }
+  const disable = () => run(async () => {
+    const r = await mfaDisable(password)
+    onChange(r.user)
+    setPassword('')
+    toast.success('ปิด MFA แล้ว')
+  })
+  const regen = () => run(async () => {
+    const r = await mfaNewBackupCodes(password)
+    setCodes(r.backupCodes)
+    setPassword('')
+    setStep('codes')
+  })
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-center gap-2 mb-1">
+        <h3 className="font-semibold flex-1">ยืนยันตัวตน 2 ขั้นตอน (MFA)</h3>
+        <span className={`text-[12px] px-2.5 py-0.5 rounded-full ${user?.mfaEnabled ? 'bg-oksoft text-ok' : 'bg-surface2 text-muted'}`}>
+          {user?.mfaEnabled ? 'เปิดใช้อยู่' : 'ปิดอยู่'}
+        </span>
+      </div>
+      <p className="text-[12px] text-muted mb-4">
+        นอกจากรหัสผ่าน ต้องกรอกรหัส 6 หลักจากแอปในมือถือทุกครั้งที่เข้าสู่ระบบ — แม้รหัสผ่านหลุด คนอื่นก็เข้าบัญชีไม่ได้
+        {user?.role === 'admin' && <b className="text-ink"> แนะนำอย่างยิ่งสำหรับบัญชี Admin</b>}
+      </p>
+
+      {step === 'codes' && (
+        <div className="rounded-2xl border border-warn/40 bg-warnsoft p-4 mb-4">
+          <p className="text-[13px] font-semibold text-warn">รหัสสำรอง — จดหรือพิมพ์เก็บไว้ตอนนี้ (แสดงครั้งเดียว)</p>
+          <p className="text-[12px] text-muted mb-3">ใช้แทนรหัส 6 หลักได้ชุดละ 1 ครั้ง เมื่อทำมือถือหาย</p>
+          <div className="grid grid-cols-2 gap-2 font-mono text-[14px]">
+            {codes.map((c) => <span key={c} className="bg-surface rounded-lg px-3 py-1.5 text-center">{c}</span>)}
+          </div>
+          <Btn className="mt-3" onClick={() => setStep('idle')}>จดเรียบร้อยแล้ว</Btn>
+        </div>
+      )}
+
+      {!user?.mfaEnabled && step === 'idle' && (
+        <Btn variant="primary" onClick={start} disabled={busy}>เปิดใช้ MFA</Btn>
+      )}
+
+      {step === 'scan' && setup && (
+        <div className="space-y-4">
+          <ol className="text-[13px] space-y-1 list-decimal pl-5">
+            <li>ติดตั้งแอป <b>Google Authenticator</b> หรือ <b>Microsoft Authenticator</b> ในมือถือ</li>
+            <li>กด + ในแอป แล้วสแกน QR นี้</li>
+            <li>กรอกรหัส 6 หลักที่แอปแสดง</li>
+          </ol>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="bg-white p-3 rounded-2xl"><QRCodeSVG value={setup.otpauthUrl} size={150} /></div>
+            <div className="text-[12px] text-muted">
+              สแกนไม่ได้? พิมพ์รหัสนี้ในแอปแทน
+              <p className="font-mono text-[13px] text-ink break-all mt-1">{setup.secret.match(/.{1,4}/g).join(' ')}</p>
+            </div>
+          </div>
+          <form onSubmit={confirm} className="flex flex-wrap gap-2 items-end">
+            <Field label="รหัส 6 หลักจากแอป" inputMode="numeric" autoComplete="one-time-code" value={code}
+              onChange={(e) => setCode(e.target.value)} className="w-48" />
+            <Btn type="submit" variant="primary" disabled={busy || code.trim().length < 6}>ยืนยันและเปิดใช้</Btn>
+            <Btn type="button" onClick={() => setStep('idle')}>ยกเลิก</Btn>
+          </form>
+        </div>
+      )}
+
+      {user?.mfaEnabled && step === 'idle' && (
+        <div className="flex flex-wrap gap-2 items-end">
+          <Field label="ยืนยันด้วยรหัสผ่าน" type="password" autoComplete="current-password" value={password}
+            onChange={(e) => setPassword(e.target.value)} className="w-56" />
+          <Btn onClick={regen} disabled={busy || !password}>สร้างรหัสสำรองใหม่</Btn>
+          <Btn onClick={disable} disabled={busy || !password} className="text-bad">ปิด MFA</Btn>
+        </div>
+      )}
     </Card>
   )
 }

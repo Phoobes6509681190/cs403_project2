@@ -109,3 +109,16 @@ test("บัญชีที่ต้องเปลี่ยนรหัส (mcp
   const p = await fetch(`${base}/auth/password`, { method: "PUT", headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" }, body: "{}" });
   assert.strictEqual(p.status, 400);
 });
+
+test("token ขั้นรอ MFA ใช้แทน session ไม่ได้ (กันข้ามขั้น MFA)", async () => {
+  const t = jwt.sign({ userId: "64b000000000000000000001", purpose: "mfa" }, "test-secret");
+  const r = await fetch(`${base}/assets`, { headers: { Authorization: `Bearer ${t}` } });
+  assert.strictEqual(r.status, 401);
+});
+
+test("ประวัติ login / รีเซ็ต MFA / ปลดล็อก = admin เท่านั้น", async () => {
+  const h = { Authorization: `Bearer ${tokenFor("user")}` };
+  assert.strictEqual((await fetch(`${base}/login-logs`, { headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/users/64b000000000000000000002/mfa-reset`, { method: "PUT", headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/users/64b000000000000000000002/unlock`, { method: "PUT", headers: h })).status, 403);
+});
