@@ -15,7 +15,7 @@ import { nf } from '../utils/format'
 const PER_PAGE = 10
 
 const emptyForm = {
-  code: '', name: '', model: '', brand: '', cat: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
+  code: '', name: '', model: '', brand: '', cat: '', building: '', floor: '', roomNo: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
 }
 
 export default function AssetListPage() {
@@ -82,7 +82,12 @@ export default function AssetListPage() {
   const openEdit = (asset) => {
     setEditing(asset)
     // เอาเฉพาะฟิลด์ในฟอร์ม (ไม่ส่ง location/codeParts เดิมกลับไปทับค่าที่แก้)
-    setForm(Object.fromEntries(Object.keys(emptyForm).map((k) => [k, asset[k] ?? ''])))
+    setForm({
+      ...Object.fromEntries(Object.keys(emptyForm).map((k) => [k, asset[k] ?? ''])),
+      building: asset.location?.building || '',
+      floor: asset.location?.floor || '',
+      roomNo: asset.location?.room || '',
+    })
     setFormOpen(true)
   }
 
@@ -90,11 +95,14 @@ export default function AssetListPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      // ส่งสถานที่แยกช่องเหมือนไฟล์ Excel — ถ้าเว้น "ระบุสถานที่ใช้งาน" ระบบประกอบจาก ตึก/ชั้น/ห้อง ให้
+      const { building, floor, roomNo, room, ...rest } = form
+      const payload = { ...rest, location: { building, floor, room: roomNo, label: room } }
       if (editing) {
-        await updateAsset(editing.id, form)
+        await updateAsset(editing.id, payload)
         toast.success('บันทึกการแก้ไขเรียบร้อยแล้ว')
       } else {
-        await createAsset(form)
+        await createAsset(payload)
         toast.success('เพิ่มครุภัณฑ์เรียบร้อยแล้ว')
       }
       setFormOpen(false)
@@ -189,28 +197,33 @@ export default function AssetListPage() {
         {state === 'ready' && (
           <>
             <div className="scroll-x">
-              <table className="w-full min-w-[820px] text-[13px]">
+              {/* คอลัมน์เรียงตามไฟล์ Excel ของคณะ + ผู้ถือครอง */}
+              <table className="w-full min-w-[1150px] text-[13px]">
                 <thead>
                   <tr className="text-[12px] text-muted border-b border-line">
-                    {['รหัสครุภัณฑ์', 'ชื่อครุภัณฑ์', 'ยี่ห้อ', 'สถานที่', 'ผู้ถือครอง', 'สถานะ', ''].map((h) => (
+                    {['ลำดับ', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {result.items.map((a) => (
+                  {result.items.map((a, i) => (
                     <tr key={a.id} className="border-b border-line last:border-0 hover:bg-surface2">
-                      <td className="py-3 pr-3 text-muted font-mono text-[12px] tabular-nums whitespace-nowrap">
+                      <td className="py-3 pr-3 text-faint tabular-nums">{(page - 1) * PER_PAGE + i + 1}</td>
+                      <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.location?.building || '—'}</td>
+                      <td className="py-3 pr-3 text-muted">{a.location?.floor || '—'}</td>
+                      <td className="py-3 pr-3 text-muted">{a.location?.room || '—'}</td>
+                      <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.room || '—'}</td>
+                      <td className="py-3 pr-3"><StatusPill status={a.status} /></td>
+                      <td className="py-3 pr-3 font-mono text-[12px] tabular-nums whitespace-nowrap">
                         <Link to={`/assets/${a.id}`} className="hover:text-brand hover:underline">{a.code}</Link>
                       </td>
                       <td className="py-3 pr-3">
                         <p className="font-medium">{a.name}</p>
-                        <p className="text-[11px] text-faint">{a.model}</p>
+                        {a.model && <p className="text-[11px] text-faint">{a.model}</p>}
                       </td>
-                      <td className="py-3 pr-3 text-muted">{a.brand}</td>
-                      <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.room}</td>
+                      <td className="py-3 pr-3 text-muted">{a.brand || '—'}</td>
                       <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.owner || '—'}</td>
-                      <td className="py-3 pr-3"><StatusPill status={a.status} /></td>
                       <td className="py-3 pr-1">
                         <div className="flex items-center gap-1 justify-end text-faint">
                           <Link to={`/assets/${a.id}`} className="p-1.5 rounded-lg hover:text-brand hover:bg-brandsoft" title="ดูรายละเอียด">
@@ -271,7 +284,12 @@ export default function AssetListPage() {
           <Field label="รุ่น" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
           <Field label="ยี่ห้อ" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
           <Field label="ประเภท" value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })} />
-          <Field label="สถานที่/ห้อง" required value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
+          <Field label="ตึก/อาคาร" placeholder="เช่น บร.2" value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="ชั้น" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} />
+            <Field label="ห้อง" value={form.roomNo} onChange={(e) => setForm({ ...form, roomNo: e.target.value })} />
+          </div>
+          <Field label="ระบุ สถานที่ใช้งาน" placeholder="เว้นว่าง = ใช้ ตึก/ชั้น/ห้อง" className="col-span-2" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
           <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
           <SelectField
             label="บัญชีผู้ถือครอง (ถ้ามี)"

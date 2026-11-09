@@ -23,7 +23,7 @@ Deploy: Frontend บน Vercel, Backend บน Render
   Postman ใช้ `Authorization: Bearer` ได้ · Frontend เรียก `/api` ผ่าน proxy โดเมนเดียวกัน
   (dev: `vite.config.js` proxy → :4000, prod: `vercel.json` rewrites → Render)
 - Response ของ asset ใช้ชื่อฟิลด์ฝั่ง Frontend (`code, cat, room, owner, ...`) — แปลงใน `backend/src/services/assetDto.js`
-- Import 2 ขั้น: `POST /api/assets/import/preview` (เทียบกับระบบ: ใหม่ / ตรงกัน / ต่างกัน / หายจากไฟล์) → `POST /api/assets/import` (เพิ่มใหม่ + อัปเดตเฉพาะฟิลด์ที่ Admin เลือก, ค่าเดิมเก็บในประวัติ)
+- Import 2 ขั้น: `POST /api/assets/import/preview` (เทียบกับระบบ: ใหม่ / ตรงกัน / ต่างกัน / หายจากไฟล์) → `POST /api/assets/import` (เพิ่มใหม่ + อัปเดตให้ตรงกับไฟล์, ค่าเดิมเก็บในประวัติ)
 - Real-time ตรวจนับใช้ polling ไม่ใช้ WebSocket
 - Export Excel ทำฝั่ง Frontend (`xlsx`), PDF ใช้การพิมพ์ของเบราว์เซอร์ (ภาษาไทยไม่ต้องฝังฟอนต์)
 

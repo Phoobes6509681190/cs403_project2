@@ -59,6 +59,8 @@ exports.preview = async (req, res) => {
 
     const sameRows = new Set(c.same.map((x) => x.row.row));
     const changedRows = new Set(c.changed.map((x) => x.row.row));
+    const changedByRow = new Map(c.changed.map((x) => [x.row.row, x]));
+    const dupRows = new Set(c.dupInFile.map((r) => r.row));
 
     res.json({
       success: true,
@@ -85,6 +87,28 @@ exports.preview = async (req, res) => {
       // ในระบบแต่ไม่อยู่ในไฟล์ — แจ้งให้ตรวจสอบ ไม่เปลี่ยนอะไรอัตโนมัติ
       missing: c.missing.slice(0, PREVIEW_LIMIT).map(brief),
       missingTotal: c.missing.length,
+      // ทุกแถวของไฟล์ (สูงสุด 500) พร้อมผลเทียบ — หน้าเว็บแสดงเป็นตารางคอลัมน์เดียวกับไฟล์
+      rows: parsed.rows.slice(0, 500).map((r) => {
+        const ch = changedByRow.get(r.row);
+        const kind = r.errors.length ? "invalid" : dupRows.has(r.row) ? "dup" : ch ? "changed" : sameRows.has(r.row) ? "same" : "new";
+        return {
+          row: r.row,
+          kind,
+          building: r.data.location?.building || "",
+          floor: r.data.location?.floor || "",
+          room: r.data.location?.room || "",
+          locationLabel: rowLocationLabel(r.data.location),
+          statusLabel: r.statusLabel,
+          statusKey: r.statusKey,
+          code: r.data.assetCode,
+          name: r.data.name,
+          brand: r.data.brand || "",
+          holderName: r.data.holderName || "",
+          // ช่องที่ต่างจากในระบบ: { field: "ค่าเดิมในระบบ" }
+          was: ch ? Object.fromEntries(ch.diffs.map((d) => [d.field, d.currentLabel || "—"])) : {},
+          errors: r.errors
+        };
+      }),
       sample: parsed.rows.slice(0, 20).map((r) => ({
         row: r.row,
         ...r.data,
@@ -110,7 +134,9 @@ exports.commit = async (req, res) => {
     const parsed = readUpload(req);
     const statusMapping = parseJson(req.body.statusMapping);
     const budgetMapping = parseJson(req.body.budgetMapping);
-    const updates = parseJson(req.body.updates);
+    // ค่าเริ่มต้น: ใช้ค่าจากไฟล์ทุกช่อง (ข้อมูลในระบบตรงกับไฟล์) — ค่าเดิมถูกเก็บในประวัติ
+    // ส่ง updates {"<assetId>": ["status", ...]} มาเพื่อเลือกเฉพาะบางช่องได้ (ไม่บังคับ)
+    const updates = req.body.updates ? parseJson(req.body.updates) : null;
 
     // บันทึกตัวย่องบใหม่ที่ Admin เลือก (งบที่เพิ่มตอน Import ถือเป็นงบในอดีต)
     for (const [abbr, name] of Object.entries(budgetMapping)) {
@@ -159,8 +185,8 @@ exports.commit = async (req, res) => {
     // 2) อัปเดตรายการที่ต่างกัน เฉพาะฟิลด์ที่ Admin เลือก — ค่าเดิมถูกเก็บในประวัติ (ก่อน → หลัง)
     let updatedCount = 0;
     for (const x of c.changed) {
-      const chosen = new Set(updates[String(x.asset._id)] || []);
-      const apply = x.diffs.filter((d) => chosen.has(d.field));
+      const chosen = updates ? new Set(updates[String(x.asset._id)] || []) : null;
+      const apply = chosen ? x.diffs.filter((d) => chosen.has(d.field)) : x.diffs;
       if (!apply.length) {
         skippedRows.push({ row: x.row.row, reason: "คงค่าในระบบ (ไม่ได้เลือกใช้ค่าจากไฟล์)" });
         continue;

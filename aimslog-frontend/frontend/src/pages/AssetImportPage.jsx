@@ -13,7 +13,6 @@ export default function AssetImportPage() {
   const [preview, setPreview] = useState(null)
   const [statusMapping, setStatusMapping] = useState({}) // { 'ป้ายสถานะเดิม': 'statusKey' }
   const [budgetMapping, setBudgetMapping] = useState({}) // { 'ตัวย่อ': 'ชื่องบ' }
-  const [updates, setUpdates] = useState({}) // { assetId: ['status', 'location'] } = ใช้ค่าจากไฟล์
   const [showMissing, setShowMissing] = useState(false)
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -24,7 +23,6 @@ export default function AssetImportPage() {
     setPreview(null)
     setStatusMapping({})
     setBudgetMapping({})
-    setUpdates({})
     setShowMissing(false)
     setResult(null)
   }
@@ -51,21 +49,12 @@ export default function AssetImportPage() {
 
   const missingStatus = Object.values(statusMapping).some((v) => !v)
   const missingBudget = Object.values(budgetMapping).some((v) => !v.trim())
-  const chosenCount = Object.values(updates).filter((f) => f.length).length
-  const canImport = preview && (preview.newRows > 0 || chosenCount > 0) && !missingStatus && !missingBudget
-
-  const toggleField = (assetId, field) =>
-    setUpdates((u) => {
-      const cur = u[assetId] || []
-      return { ...u, [assetId]: cur.includes(field) ? cur.filter((f) => f !== field) : [...cur, field] }
-    })
-  const setAllFromFile = (useFile) =>
-    setUpdates(useFile ? Object.fromEntries(preview.changed.map((c) => [c.assetId, c.diffs.map((d) => d.field)])) : {})
+  const canImport = preview && (preview.newRows > 0 || preview.changedTotal > 0) && !missingStatus && !missingBudget
 
   const confirmImport = async () => {
     setImporting(true)
     try {
-      const data = await commitImport(file, { statusMapping, budgetMapping, updates })
+      const data = await commitImport(file, { statusMapping, budgetMapping })
       setResult(data)
       toast.success(`เพิ่มใหม่ ${nf(data.successCount)} · อัปเดต ${nf(data.updatedCount)} รายการ`)
     } catch (err) {
@@ -92,7 +81,7 @@ export default function AssetImportPage() {
             <p className="text-[12px] text-muted">
               ใช้ไฟล์จากคณะได้เลย ระบบหาแถวหัวตารางเอง ต้องมีคอลัมน์ “รหัสสินทรัพย์อ้างอิง” และ “ชื่อสินทรัพย์”
               <br />
-              ระบบจะเทียบกับข้อมูลเดิมให้ก่อน: แยกเป็นรายการใหม่ / ตรงกัน / ต่างกัน — ไม่มีการแก้ข้อมูลเดิมจนกว่าคุณจะเลือก
+              ระบบเทียบกับข้อมูลเดิมให้ดูก่อนยืนยัน — นำเข้าแล้วข้อมูลในระบบจะตรงกับไฟล์ ส่วนค่าเดิมเก็บไว้ในประวัติของครุภัณฑ์
             </p>
           </div>
           <Btn onClick={onTemplate}>
@@ -114,7 +103,7 @@ export default function AssetImportPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Stat label="รายการใหม่" value={preview.newRows} tone="ok" />
             <Stat label="ตรงกับในระบบ" value={preview.sameRows} />
-            <Stat label="ข้อมูลต่างจากในระบบ" value={preview.changedTotal} tone={preview.changedTotal ? 'warn' : undefined} />
+            <Stat label="จะอัปเดตตามไฟล์" value={preview.changedTotal} tone={preview.changedTotal ? 'warn' : undefined} />
             <Stat label="ข้อมูลไม่ครบ" value={preview.errors.length} tone={preview.errors.length ? 'bad' : undefined} />
           </div>
 
@@ -182,61 +171,6 @@ export default function AssetImportPage() {
             </Card>
           )}
 
-          {preview.changedTotal > 0 && (
-            <Card className="p-4">
-              <div className="flex flex-wrap items-start gap-2 mb-3">
-                <div className="flex-1 min-w-[240px]">
-                  <h3 className="font-semibold">ข้อมูลต่างจากในระบบ ({nf(preview.changedTotal)} รายการ)</h3>
-                  <p className="text-[12px] text-muted">
-                    ค่าเริ่มต้นคือ <b>คงค่าในระบบ</b> (เพราะในระบบมีการติดตามการย้าย/ผลตรวจล่าสุดอยู่แล้ว) — ติ๊กช่องที่ต้องการใช้ค่าจากไฟล์แทน
-                    ค่าเดิมจะถูกบันทึกในประวัติของครุภัณฑ์เสมอ
-                  </p>
-                </div>
-                <Btn onClick={() => setAllFromFile(false)}>คงค่าในระบบทั้งหมด</Btn>
-                <Btn onClick={() => setAllFromFile(true)}>ใช้ค่าจากไฟล์ทั้งหมด</Btn>
-              </div>
-              <div className="scroll-x max-h-[420px] overflow-y-auto">
-                <table className="w-full min-w-[720px] text-[12px]">
-                  <thead className="sticky top-0 bg-surface">
-                    <tr className="text-muted border-b border-line">
-                      {['แถว', 'ครุภัณฑ์', 'ข้อมูล', 'ในระบบ', 'ในไฟล์', 'ใช้ค่าจากไฟล์'].map((h) => (
-                        <th key={h} className="text-left font-medium py-2 pr-3 whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.changed.map((c) =>
-                      c.diffs.map((d, i) => {
-                        const on = (updates[c.assetId] || []).includes(d.field)
-                        return (
-                          <tr key={c.assetId + d.field} className={i === c.diffs.length - 1 ? 'border-b border-line' : ''}>
-                            {i === 0 && (
-                              <>
-                                <td rowSpan={c.diffs.length} className="py-2 pr-3 align-top text-faint">{c.row}</td>
-                                <td rowSpan={c.diffs.length} className="py-2 pr-3 align-top">
-                                  <p className="font-mono text-[11px]">{c.code}</p>
-                                  <p className="text-muted">{c.name}</p>
-                                </td>
-                              </>
-                            )}
-                            <td className="py-2 pr-3 text-muted whitespace-nowrap">{d.label}</td>
-                            <td className={`py-2 pr-3 ${on ? 'line-through text-faint' : 'font-medium'}`}>{d.currentLabel || '—'}</td>
-                            <td className={`py-2 pr-3 ${on ? 'font-medium text-brand' : 'text-muted'}`}>{d.incomingLabel}</td>
-                            <td className="py-2 pr-3">
-                              <input type="checkbox" className="w-4 h-4" checked={on} onChange={() => toggleField(c.assetId, d.field)} />
-                            </td>
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {preview.changedTotal > preview.changed.length && (
-                <p className="text-[11px] text-faint mt-2">แสดง {nf(preview.changed.length)} จาก {nf(preview.changedTotal)} รายการ — ที่เหลือจะคงค่าในระบบ</p>
-              )}
-            </Card>
-          )}
 
           {preview.missingTotal > 0 && (
             <Card className="p-4">
@@ -262,55 +196,74 @@ export default function AssetImportPage() {
             </Card>
           )}
 
-          {preview.errors.length > 0 && <RowTable title="แถวที่นำเข้าไม่ได้" rows={preview.errors} />}
-          {preview.dupInFile?.length > 0 && <RowTable title="แถวซ้ำในไฟล์ (ข้าม)" rows={preview.dupInFile} />}
 
           <Card className="p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <h3 className="font-semibold">ตัวอย่างข้อมูล ({preview.sample.length} แถวแรก)</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+              <h3 className="font-semibold">ข้อมูลในไฟล์ ({nf(preview.totalRows)} แถว)</h3>
               <div className="flex gap-2">
                 <Btn onClick={reset} disabled={importing}>ยกเลิก</Btn>
                 <Btn variant="primary" onClick={confirmImport} disabled={!canImport || importing}>
-                  {importing ? 'กำลังนำเข้า...' : `ยืนยัน: เพิ่ม ${nf(preview.newRows)} · อัปเดต ${nf(chosenCount)}`}
+                  {importing ? 'กำลังนำเข้า...' : `ยืนยันนำเข้า (เพิ่ม ${nf(preview.newRows)} · อัปเดต ${nf(preview.changedTotal)})`}
                 </Btn>
               </div>
             </div>
+            <p className="text-[12px] text-muted mb-3">
+              หลังนำเข้า ข้อมูลในระบบจะตรงกับไฟล์นี้ · ช่องที่ <span className="text-warn font-medium">ไฮไลต์</span> คือค่าที่เปลี่ยนจากในระบบ
+              (ค่าเดิมแสดงตัวเล็กด้านล่างและถูกเก็บในประวัติของครุภัณฑ์)
+            </p>
             {(missingStatus || missingBudget) && (
               <p className="text-[12px] text-warn mb-2">กรุณาเลือกสถานะ/งบที่ระบบไม่รู้จักให้ครบก่อนนำเข้า</p>
             )}
-            <div className="scroll-x">
-              <table className="w-full min-w-[820px] text-[12px]">
-                <thead>
+            <div className="scroll-x max-h-[560px] overflow-y-auto">
+              <table className="w-full min-w-[1100px] text-[12px]">
+                <thead className="sticky top-0 bg-surface z-10">
                   <tr className="text-muted border-b border-line">
-                    {['แถว', 'เลขครุภัณฑ์', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'สถานที่', 'งบ', 'สถานะ', ''].map((h) => (
+                    {['แถว', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.sample.map((r) => {
+                  {preview.rows.map((r) => {
                     const statusKey = r.statusKey || statusMapping[r.statusLabel]
-                    const budget = r.budget || budgetMapping[r.budgetAbbr] || (r.budgetAbbr ? '' : 'ไม่ระบุ')
+                    const cell = (field, value, extra = '') => (
+                      <td className={`py-2 pr-3 ${extra} ${r.was[field] !== undefined ? 'bg-warnsoft' : ''}`}>
+                        <span className={r.was[field] !== undefined ? 'text-warn font-medium' : ''}>{value || '—'}</span>
+                        {r.was[field] !== undefined && <span className="block text-[10px] text-faint line-through">{r.was[field]}</span>}
+                      </td>
+                    )
+                    const tag = {
+                      new: <span className="text-ok">ใหม่</span>,
+                      changed: <span className="text-warn">อัปเดต</span>,
+                      same: <span className="text-faint">ตรงกัน</span>,
+                      dup: <span className="text-faint">ซ้ำในไฟล์</span>,
+                      invalid: <span className="text-bad">{r.errors.join(', ')}</span>,
+                    }[r.kind]
                     return (
-                      <tr key={r.row} className={`border-b border-line last:border-0 ${r.duplicate || r.errors.length ? 'opacity-50' : ''}`}>
+                      <tr key={r.row} className={`border-b border-line last:border-0 ${r.kind === 'dup' || r.kind === 'invalid' ? 'opacity-50' : ''}`}>
                         <td className="py-2 pr-3 text-faint">{r.row}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{r.assetCode || '—'}</td>
-                        <td className="py-2 pr-3">{r.name || '—'}</td>
-                        <td className="py-2 pr-3">{r.brand || ''}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">{r.location?.label || ''}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">{budget || <span className="text-warn">? ({r.budgetAbbr})</span>}</td>
-                        <td className="py-2 pr-3">
+                        <td className="py-2 pr-3 whitespace-nowrap">{r.building}</td>
+                        <td className="py-2 pr-3">{r.floor}</td>
+                        <td className="py-2 pr-3">{r.room}</td>
+                        {cell('location', r.locationLabel, 'whitespace-nowrap')}
+                        <td className={`py-2 pr-3 ${r.was.status !== undefined ? 'bg-warnsoft' : ''}`}>
                           {statusKey ? <StatusPill status={statusKey} /> : <span className="text-warn">? {r.statusLabel}</span>}
+                          {r.was.status !== undefined && <span className="block text-[10px] text-faint line-through mt-0.5">{r.was.status}</span>}
                         </td>
-                        <td className="py-2 pr-3 text-faint whitespace-nowrap">
-                          {r.changed ? 'ต่างจากในระบบ' : r.duplicate ? 'ตรงกับในระบบ' : r.errors.join(', ')}
-                        </td>
+                        <td className="py-2 pr-3 whitespace-nowrap font-mono text-[11px]">{r.code || '—'}</td>
+                        <td className="py-2 pr-3">{r.name || '—'}</td>
+                        {cell('brand', r.brand)}
+                        {cell('holderName', r.holderName)}
+                        <td className="py-2 pr-3 whitespace-nowrap">{tag}</td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
             </div>
+            {preview.totalRows > preview.rows.length && (
+              <p className="text-[11px] text-faint mt-2">แสดง {nf(preview.rows.length)} แถวแรก — นำเข้าครบทั้ง {nf(preview.totalRows)} แถว</p>
+            )}
           </Card>
         </>
       )}
@@ -320,8 +273,8 @@ export default function AssetImportPage() {
           <h3 className="font-semibold mb-3">ผลการนำเข้า</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <Stat label="เพิ่มใหม่" value={result.successCount} tone="ok" />
-            <Stat label="อัปเดตจากไฟล์" value={result.updatedCount} tone="warn" />
-            <Stat label="ตรงกัน / คงค่าเดิม" value={(result.sameCount || 0) + (result.skippedCount || 0)} />
+            <Stat label="อัปเดตตามไฟล์" value={result.updatedCount} tone="warn" />
+            <Stat label="ตรงกันอยู่แล้ว" value={result.sameCount || 0} />
             <Stat label="ล้มเหลว" value={result.failedRows.length} tone={result.failedRows.length ? 'bad' : undefined} />
           </div>
           {result.failedRows.length > 0 && <RowTable title="รายการที่นำเข้าไม่สำเร็จ" rows={result.failedRows} />}
