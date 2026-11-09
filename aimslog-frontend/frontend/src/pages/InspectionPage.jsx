@@ -10,6 +10,7 @@ import { usePolling } from '../hooks/usePolling'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
 import { InspectButtons, INSPECT_ACTIONS } from '../components/InspectButtons'
+import RoundHistory from '../components/RoundHistory'
 import { STATUS } from '../data/statusConfig'
 import { nf, formatDateTimeTH } from '../utils/format'
 
@@ -120,6 +121,7 @@ export default function InspectionPage() {
 
   if (state === 'empty') {
     return (
+      <div className="space-y-4">
       <Card className="p-8">
         <EmptyState message="ยังไม่มีรอบตรวจนับที่เปิดอยู่ในขณะนี้" />
         {role === 'admin' && (
@@ -130,6 +132,8 @@ export default function InspectionPage() {
           </div>
         )}
       </Card>
+      <RoundHistory />
+      </div>
     )
   }
 
@@ -292,6 +296,8 @@ export default function InspectionPage() {
           />
         )}
       </Card>
+
+      <RoundHistory excludeId={inspection.id} />
 
       <ConfirmDialog
         open={bulkOpen}

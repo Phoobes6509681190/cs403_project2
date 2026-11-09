@@ -97,6 +97,7 @@ export default function ReportPage() {
       {inspection && (
         <Card className="p-4 text-[13px] print:hidden">
           รอบตรวจนับล่าสุด ปีงบประมาณ {inspection.budgetYear} ({inspection.status === 'open' ? 'กำลังดำเนินการ' : `ปิดแล้ว ${formatDateTH(inspection.closedAt)}${inspection.closedBy ? ` โดย ${inspection.closedBy}` : ''}`})
+          {inspection.closeReason && <span className="block text-[12px] text-warn mt-1">ปิดแทนผู้เปิดรอบ — เหตุผล: {inspection.closeReason}</span>}
           · ตรวจแล้ว {nf(inspection.progress.checked)} จาก {nf(inspection.progress.total)} รายการ ({inspection.progress.percent}%)
         </Card>
       )}

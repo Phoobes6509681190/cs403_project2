@@ -420,7 +420,8 @@ cd backend && npm run reset-password -- <username>
 `{ "members": ["userId", "userId"] }` — แทนที่รายชื่อเดิม (เฉพาะรอบที่ยังเปิด)
 
 #### `GET /inspections` 👤
-`{ items: [ { id, budgetYear, status, createdAt, closedAt, committeeCount, progress } ] }`
+`{ items: [ { id, budgetYear, status, createdAt, closedAt, createdBy, closedBy, closedByOther, closeReason, committee, committeeCount, progress } ] }`
+(`closedByOther: true` = Admin คนอื่นปิดแทน — `closeReason` คือเหตุผล)
 
 ### 3.8 รายงาน 👤
 

@@ -312,6 +312,13 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(d.data.closeReason, "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้");
     const s = await api("GET", "/reports/summary", { token: tok.admin });
     assert.strictEqual(s.data.inspection.closedBy, "Admin สำรอง");
+    assert.strictEqual(s.data.inspection.closeReason, "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้");
+    const all = await api("GET", "/inspections", { token: tok.admin });
+    assert.strictEqual(all.data.items.length, 2);
+    const latest = all.data.items[0];
+    assert.strictEqual(latest.closedByOther, true);
+    assert.strictEqual(latest.closeReason, "พี่เป้ลาป่วย ต้องส่งรายงานวันนี้");
+    assert.strictEqual(all.data.items[1].closedByOther, false, "รอบแรกคนเปิดเป็นคนปิดเอง");
   });
 
   await t.test("ถังขยะ: ลบ → กู้คืน → ลบ → ลบถาวร", async () => {

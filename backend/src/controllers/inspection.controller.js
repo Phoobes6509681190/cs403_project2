@@ -86,6 +86,9 @@ async function validCommittee(ids) {
 exports.list = async (req, res) => {
   try {
     const list = await Inspection.find().sort({ createdAt: -1 }).lean();
+    const ids = list.flatMap((i) => [i.createdBy, i.closedBy, ...i.committee]).filter(Boolean);
+    const users = await User.find({ _id: { $in: ids } }, { name: 1 }).lean();
+    const nameOf = (id) => users.find((u) => String(u._id) === String(id))?.name || "";
     const items = await Promise.all(
       list.map(async (i) => ({
         id: String(i._id),
@@ -93,6 +96,12 @@ exports.list = async (req, res) => {
         status: i.status,
         createdAt: i.createdAt,
         closedAt: i.closedAt || null,
+        createdBy: nameOf(i.createdBy),
+        closedBy: nameOf(i.closedBy),
+        closeReason: i.closeReason || "",
+        // ปิดแทน = คนปิดไม่ใช่คนเปิดรอบ
+        closedByOther: !!i.closedBy && String(i.closedBy) !== String(i.createdBy),
+        committee: i.committee.map(nameOf),
         committeeCount: i.committee.length,
         progress: await progressOf(i._id)
       }))
