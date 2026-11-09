@@ -6,7 +6,8 @@
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
     "seed": "node src/seed.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:integration": "node --test test/integration.test.js"
   },
   "keywords": [],
   "author": "",
@@ -22,5 +23,8 @@
     "mongoose": "^9.10.0",
     "multer": "^2.3.0",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.3.0"
   }
 }

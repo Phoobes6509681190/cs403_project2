@@ -32,7 +32,7 @@ Deploy: Frontend บน Vercel, Backend บน Render
 cd backend && npm install && cp .env.example .env   # ใส่ MONGO_URI, JWT_SECRET
 npm run seed     # สร้าง admin/staff (รหัส 123456) + ตารางงบ
 npm run dev      # API ที่ :4000
-npm test         # unit + HTTP tests (ไม่ต้องใช้ DB)
+npm test         # unit + HTTP + integration (integration ใช้ MongoDB ชั่วคราว — ครั้งแรกดาวน์โหลดตัว MongoDB, เปิดไม่ได้จะข้าม)
 node samples/make-sample.js   # สร้างไฟล์ตัวอย่างสำหรับทดสอบ Import
 
 cd aimslog-frontend/frontend && npm install && npm run dev   # :5173
