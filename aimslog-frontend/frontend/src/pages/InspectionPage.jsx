@@ -4,12 +4,13 @@ import {
   Card, Btn, ProgressBar, ConfirmDialog, LoadingState, ErrorState, EmptyState, StatusPill, useToast,
 } from '../components/UI'
 import {
-  getActiveInspection, getInspection, submitInspectionItem, getInspectionProgress, closeInspection,
+  getActiveInspection, getInspection, submitInspectionItem, getInspectionProgress, closeInspection, bulkMarkRoom,
 } from '../services/inspectionService'
 import { usePolling } from '../hooks/usePolling'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
 import { InspectButtons } from '../components/InspectButtons'
+import { STATUS } from '../data/statusConfig'
 import { nf, formatDateTimeTH } from '../utils/format'
 
 export default function InspectionPage() {
@@ -23,6 +24,9 @@ export default function InspectionPage() {
   const [submittingId, setSubmittingId] = useState(null)
   const [tab, setTab] = useState('pending')
   const [q, setQ] = useState('')
+  const [room, setRoom] = useState('')
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulking, setBulking] = useState(false)
   const debouncedQ = useDebounce(q, 200)
 
   const load = useCallback(async () => {
@@ -49,6 +53,10 @@ export default function InspectionPage() {
   const { data: progress } = usePolling(progressFetch, { intervalMs: 3000, enabled: !!inspection && isOpen })
 
   const markStatus = async (assetId, status) => {
+    // กันกดพลาด: ถ้าชิ้นนี้บันทึกผลไว้แล้ว ให้ยืนยันก่อนเปลี่ยน
+    const prev = inspection.items.find((i) => i.assetId === assetId)
+    if (prev?.checked && prev.status !== status &&
+        !window.confirm(`ชิ้นนี้บันทึกผลไว้แล้ว ต้องการเปลี่ยนเป็น "${STATUS[status].label}" หรือไม่?`)) return
     setSubmittingId(assetId)
     try {
       const { item } = await submitInspectionItem(inspection.id, assetId, status)
@@ -77,7 +85,25 @@ export default function InspectionPage() {
     }
   }
 
-  const items = inspection?.items || []
+  const allItems = inspection?.items || []
+  const rooms = useMemo(() => [...new Set(allItems.map((i) => i.room || ''))].sort(), [allItems])
+  const items = useMemo(() => (room ? allItems.filter((i) => (i.room || '') === room) : allItems), [allItems, room])
+  const roomPending = items.filter((i) => !i.checked).length
+
+  const handleBulk = async () => {
+    setBulking(true)
+    try {
+      const { updated } = await bulkMarkRoom(inspection.id, room)
+      toast.success(`บันทึก "ปกติ" ${nf(updated)} รายการในห้อง ${room || 'ไม่ระบุ'}`)
+      setBulkOpen(false)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'บันทึกทั้งห้องไม่สำเร็จ')
+    } finally {
+      setBulking(false)
+    }
+  }
+
   const filtered = useMemo(() => {
     const needle = debouncedQ.trim().toLowerCase()
     return items
@@ -126,6 +152,11 @@ export default function InspectionPage() {
                 คุณไม่ได้เป็นกรรมการรอบนี้ — ยืนยันสภาพครุภัณฑ์ที่คุณถือครองได้ด้านล่าง
               </p>
             )}
+            {!mine && !inspection.isCommittee && isOpen && (
+              <p className="text-[12px] text-warn mt-1">
+                คุณดูความคืบหน้าได้อย่างเดียว — บันทึกผลได้เฉพาะกรรมการที่ได้รับแต่งตั้ง (กันการกดผิดแทนกรรมการ)
+              </p>
+            )}
           </div>
           {role === 'admin' && isOpen && (
             <Btn variant="danger" onClick={() => setConfirmClose(true)}>ปิดรอบ</Btn>
@@ -155,6 +186,14 @@ export default function InspectionPage() {
               </button>
             ))}
           </div>
+          {!mine && (
+            <select value={room} onChange={(e) => setRoom(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
+              <option value="">ทุกห้อง ({nf(rooms.length)})</option>
+              {rooms.map((r) => (
+                <option key={r} value={r}>{r || 'ไม่ระบุสถานที่'}</option>
+              ))}
+            </select>
+          )}
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -163,6 +202,14 @@ export default function InspectionPage() {
           />
         </div>
 
+        {room && isOpen && inspection.isCommittee && roomPending > 0 && (
+          <div className="mb-3 rounded-xl border border-ok/40 bg-oksoft px-4 py-3 flex flex-wrap items-center gap-3">
+            <p className="text-[12px] text-ok flex-1 min-w-[220px]">
+              ตรวจห้องนี้ครบแล้ว? กดชิ้นที่ <b>ผิดปกติ</b> ทีละชิ้นก่อน แล้วยืนยันที่เหลือ {nf(roomPending)} ชิ้นว่าปกติในครั้งเดียว
+            </p>
+            <Btn variant="primary" onClick={() => setBulkOpen(true)}>ที่เหลือ {nf(roomPending)} ชิ้นปกติทั้งหมด</Btn>
+          </div>
+        )}
         <ul className="divide-y divide-line">
           {filtered.slice(0, MAX_SHOW).map((item) => (
             <li key={item.assetId} className="py-3 space-y-2">
@@ -207,6 +254,16 @@ export default function InspectionPage() {
           />
         )}
       </Card>
+
+      <ConfirmDialog
+        open={bulkOpen}
+        title={`ยืนยันห้อง ${room || 'ไม่ระบุสถานที่'}`}
+        message={`บันทึกผล "ปกติ" ให้ครุภัณฑ์ที่ยังไม่ได้ตรวจ ${nf(roomPending)} ชิ้นในห้องนี้? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
+        confirmLabel="ยืนยันปกติทั้งหมด"
+        loading={bulking}
+        onConfirm={handleBulk}
+        onCancel={() => setBulkOpen(false)}
+      />
 
       <ConfirmDialog
         open={confirmClose}

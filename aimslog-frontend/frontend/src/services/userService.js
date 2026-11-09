@@ -13,3 +13,8 @@ export function createUser(payload) {
 export function resetUserPassword(userId, newPassword) {
   return api.put(`/users/${userId}/password`, { newPassword }).then((res) => res.data)
 }
+
+// เปลี่ยนสิทธิ์ / ปิด-เปิดบัญชี
+export function updateUser(userId, payload) {
+  return api.put(`/users/${userId}`, payload).then((res) => res.data)
+}

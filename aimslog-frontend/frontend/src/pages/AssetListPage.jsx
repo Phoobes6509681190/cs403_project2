@@ -40,7 +40,7 @@ export default function AssetListPage() {
 
   const [users, setUsers] = useState([])
   useEffect(() => {
-    if (canEdit) getUsers().then((d) => setUsers(d.items || [])).catch(() => {})
+    if (canEdit) getUsers({ active: 1 }).then((d) => setUsers(d.items || [])).catch(() => {})
   }, [canEdit])
 
   const [toDelete, setToDelete] = useState(null)

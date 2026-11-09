@@ -14,7 +14,9 @@ import AssetLabelsPage from './pages/AssetLabelsPage'
 import CommitteePage from './pages/CommitteePage'
 import InspectionPage from './pages/InspectionPage'
 import ReportPage from './pages/ReportPage'
-import AccountPage from './pages/AccountPage'
+import ProfilePage from './pages/ProfilePage'
+import UsersPage from './pages/UsersPage'
+import TrashPage from './pages/TrashPage'
 import ForbiddenPage from './pages/ForbiddenPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -49,12 +51,15 @@ export default function App() {
               <Route path="/assets/import" element={<AssetImportPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />
               <Route path="/inspection/committee" element={<CommitteePage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/trash" element={<TrashPage />} />
             </Route>
 
             <Route path="/inspection" element={<InspectionPage />} />
             <Route path="/inspection/:id" element={<InspectionPage />} />
             <Route path="/reports" element={<ReportPage />} />
-            <Route path="/account" element={<AccountPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/account" element={<Navigate to="/profile" replace />} />
           </Route>
         </Route>
 

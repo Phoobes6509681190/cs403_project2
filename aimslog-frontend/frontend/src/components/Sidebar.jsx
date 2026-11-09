@@ -1,7 +1,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import Icon, { Logo } from './icon'
+import Icon, { DeptLogo } from './icon'
 import { NAV } from '../data/nav'
-import { RolePill } from './UI'
+import { RolePill, Avatar } from './UI'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Sidebar({ open, setOpen, onLogoutClick }) {
@@ -23,10 +23,10 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
                     ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-5 flex items-center gap-3">
-          <Logo />
+          <DeptLogo className="h-9" />
           <div className="min-w-0">
             <p className="font-bold leading-tight">AIMSlog</p>
-            <p className="text-[11px] text-faint truncate">สาขาวิทยาการคอมพิวเตอร์</p>
+            <p className="text-[11px] text-faint truncate">ระบบครุภัณฑ์</p>
           </div>
         </div>
 
@@ -56,15 +56,13 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
 
         <div className="mt-auto p-3 space-y-2">
           <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
-            <span className="w-9 h-9 rounded-full bg-brandsoft text-brandink grid place-items-center text-[12px] font-bold">
-              {(user?.name || user?.username || '?').slice(0, 2).toUpperCase()}
-            </span>
-            <Link to="/account" onClick={() => setOpen(false)} title="บัญชีผู้ใช้ / เปลี่ยนรหัสผ่าน" className="min-w-0 flex-1 group">
+            <Avatar user={user} size={36} />
+            <Link to="/profile" onClick={() => setOpen(false)} title="โปรไฟล์ / ตั้งค่า" className="min-w-0 flex-1 group">
               <p className="text-[13px] font-semibold leading-tight truncate group-hover:text-brand">{user?.name || user?.username}</p>
               <div className="mt-0.5">
                 <RolePill role={role} />
               </div>
-              <p className="text-[11px] text-faint group-hover:text-brand mt-0.5">เปลี่ยนรหัสผ่าน</p>
+              <p className="text-[11px] text-faint group-hover:text-brand mt-0.5">โปรไฟล์และตั้งค่า</p>
             </Link>
             <button onClick={onLogoutClick} title="ออกจากระบบ" className="text-faint hover:text-bad p-1">
               <Icon name="out" />

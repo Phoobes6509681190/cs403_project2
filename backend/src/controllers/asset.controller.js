@@ -41,6 +41,8 @@ exports.getAssets = async (req, res) => {
     if (room) filter["location.label"] = String(room);
     if (budget) filter.budget = String(budget);
     if (holder) filter.holderName = String(holder);
+    // ?holderUser=me — ครุภัณฑ์ที่ฉันถือครอง (หน้าโปรไฟล์)
+    if (req.query.holderUser === "me") filter.holderUser = req.user.userId;
     if (q && String(q).trim()) {
       const re = new RegExp(escapeRegex(String(q).trim()), "i");
       filter.$or = [
@@ -180,6 +182,43 @@ exports.getAssetHistory = async (req, res) => {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
     const history = await AssetHistory.find({ asset: req.params.id }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, items: history.map(toHistoryDto) });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
+// GET /api/assets/trash (admin) — รายการที่ถูกลบ (soft delete) ล่าสุดก่อน
+exports.getTrash = async (req, res) => {
+  try {
+    const items = await Asset.find({ isDeleted: true }).sort({ updatedAt: -1 }).limit(500).lean();
+    const ids = items.map((a) => a._id);
+    const dels = await AssetHistory.find({ asset: { $in: ids }, action: "delete" }).sort({ createdAt: -1 }).lean();
+    const lastDel = new Map();
+    for (const d of dels) if (!lastDel.has(String(d.asset))) lastDel.set(String(d.asset), d);
+    res.json({
+      success: true,
+      items: items.map((a) => {
+        const d = lastDel.get(String(a._id));
+        return { ...toAssetDto(a), deletedAt: d?.createdAt || a.updatedAt, deletedBy: d?.changedByName || "" };
+      })
+    });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
+// POST /api/assets/:id/restore (admin) — กู้คืนจากถังขยะ
+exports.restoreAsset = async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
+    const asset = await Asset.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: true },
+      { isDeleted: false },
+      { returnDocument: "after" }
+    );
+    if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
+    await AssetHistory.create({ asset: asset._id, action: "restore", ...actor(req) });
+    res.json(toAssetDto(asset));
   } catch (error) {
     fail(res, 500, error.message);
   }

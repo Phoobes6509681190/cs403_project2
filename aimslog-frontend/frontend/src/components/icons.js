@@ -51,6 +51,9 @@ export const ICONS = {
   ],
   upload: [{ tag: 'path', d: 'M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3' }],
   download: [{ tag: 'path', d: 'M12 4v12m0 0-4-4m4 4 4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3' }],
+  user: [{ tag: 'circle', cx: 12, cy: 8, r: 4 }, { tag: 'path', d: 'M4 21c0-4 4-6 8-6s8 2 8 6' }],
+  restore: [{ tag: 'path', d: 'M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5' }],
+  camera: [{ tag: 'path', d: 'M4 8h3l2-3h6l2 3h3v11H4z' }, { tag: 'circle', cx: 12, cy: 13, r: 3.5 }],
   history: [
     { tag: 'path', d: 'M3 12a9 9 0 1 0 3-6.7' },
     { tag: 'path', d: 'M3 4v5h5' },

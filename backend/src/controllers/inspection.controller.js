@@ -5,7 +5,7 @@ const Inspection = require("../models/Inspection");
 const InspectionItem = require("../models/InspectionItem");
 const User = require("../models/User");
 const {
-  INSPECT_RESULTS, getOpenInspection, isCommittee, canInspectItem, progressOf
+  INSPECT_RESULTS, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf
 } = require("../services/inspection.service");
 
 const fail = (res, code, message) => res.status(code).json({ success: false, message });
@@ -32,12 +32,13 @@ const itemDto = (it, inspection, user) => ({
 async function inspectionDto(inspection, user, { withItems = true } = {}) {
   const committeeUsers = await User.find({ _id: { $in: inspection.committee } }, { name: 1, username: 1 }).lean();
   const committee = isCommittee(inspection, user);
+  const viewAll = canViewAll(inspection, user);
 
   // กรรมการ/admin เห็นทุกชิ้น — ผู้ใช้ทั่วไปเห็นเฉพาะชิ้นที่ตัวเองถือครอง (self-check)
   let items = [];
   if (withItems) {
     const filter = { inspection: inspection._id };
-    if (!committee) filter.holderUser = user.userId;
+    if (!viewAll) filter.holderUser = user.userId;
     items = await InspectionItem.find(filter).sort({ "snapshot.room": 1, "snapshot.code": 1 }).lean();
   }
 
@@ -49,7 +50,8 @@ async function inspectionDto(inspection, user, { withItems = true } = {}) {
     closedAt: inspection.closedAt || null,
     committee: committeeUsers.map((u) => ({ id: String(u._id), name: u.name, username: u.username })),
     isCommittee: committee,
-    scope: committee ? "all" : "mine",
+    // all = เห็นทุกชิ้น, mine = เฉพาะของที่ถือครอง
+    scope: viewAll ? "all" : "mine",
     results: INSPECT_RESULTS,
     items: items.map((it) => itemDto(it, inspection, user))
   };
@@ -239,6 +241,43 @@ exports.setCommittee = async (req, res) => {
     inspection.committee = committee;
     await inspection.save();
     res.json(await inspectionDto(inspection, req.user, { withItems: false }));
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
+// POST /api/inspections/:id/bulk body: { room, status: "ok" }
+// "ที่เหลือในห้องนี้ปกติทั้งหมด" — กรรมการกดชิ้นที่ผิดปกติทีละชิ้นก่อน แล้วยืนยันที่เหลือทีเดียว
+// เปลี่ยนเฉพาะชิ้นที่ยังไม่ได้ตรวจ ชิ้นที่ตรวจแล้วไม่ถูกทับ
+exports.bulkRoom = async (req, res) => {
+  try {
+    const inspection = await loadInspection(req, res);
+    if (!inspection) return;
+    if (inspection.status !== "open") return fail(res, 409, "รอบตรวจนับนี้ปิดแล้ว");
+    if (!isCommittee(inspection, req.user)) return fail(res, 403, "เฉพาะกรรมการที่ได้รับแต่งตั้งในรอบนี้");
+    const { room, status = "ok" } = req.body || {};
+    if (typeof room !== "string") return fail(res, 400, "ระบุห้อง");
+    if (status !== "ok") return fail(res, 400, "บันทึกทีละห้องได้เฉพาะผล \"ปกติ\" — ชิ้นที่ผิดปกติให้กดทีละชิ้น");
+
+    const items = await InspectionItem.find({ inspection: inspection._id, "snapshot.room": room, result: null });
+    if (!items.length) return res.json({ success: true, updated: 0 });
+
+    const now = new Date();
+    const who = { checkedBy: req.user.userId, checkedByName: req.user.name || req.user.username, checkedAt: now, method: "committee" };
+    await InspectionItem.updateMany({ _id: { $in: items.map((i) => i._id) } }, { result: "ok", ...who });
+
+    // อัปเดตสถานะครุภัณฑ์ + บันทึกประวัติเฉพาะชิ้นที่สถานะเปลี่ยน
+    const assetIds = items.map((i) => i.asset);
+    const changed = await Asset.find({ _id: { $in: assetIds }, status: { $ne: "ok" } }, { status: 1 }).lean();
+    await Asset.updateMany({ _id: { $in: assetIds } }, { status: "ok", lastInspectedAt: now });
+    if (changed.length) {
+      await AssetHistory.insertMany(changed.map((a) => ({
+        asset: a._id, action: "inspect",
+        changes: [{ field: "status", oldValue: a.status, newValue: "ok" }],
+        changedBy: req.user.userId, changedByName: who.checkedByName
+      })));
+    }
+    res.json({ success: true, updated: items.length });
   } catch (error) {
     fail(res, 500, error.message);
   }

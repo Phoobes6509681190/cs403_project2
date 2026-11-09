@@ -21,3 +21,8 @@ export function fetchMe() {
 export function changePassword(currentPassword, newPassword) {
   return api.put('/auth/password', { currentPassword, newPassword }).then((res) => res.data)
 }
+
+export function updateProfile(payload) {
+  // payload: { name, position, email, phone, bio, avatar }
+  return api.put('/auth/profile', payload).then((res) => res.data)
+}
