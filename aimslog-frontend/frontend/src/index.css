@@ -3,71 +3,74 @@
 @tailwind utilities;
 
 :root {
-  --bg: #eef1f6;
+  --bg: #f3f1eb;
   --surface: #ffffff;
-  --surface2: #f8fafc;
-  --line: #e5e7eb;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --faint: #94a3b8;
-  --brand: #2563eb;
-  --brand-soft: #eff6ff;
-  --brand-ink: #1d4ed8;
-  --ok: #16a34a;
-  --ok-soft: #dcfce7;
-  --bad: #dc2626;
-  --bad-soft: #fee2e2;
-  --warn: #ea580c;
-  --warn-soft: #ffedd5;
-  --gone: #64748b;
-  --gone-soft: #e2e8f0;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.06);
+  --surface2: #f8f6f1;
+  --line: #ddd8cc;
+  --ink: #1c1a17;
+  --muted: #625d53;
+  --faint: #938d81;
+  --brand: #c2570c;
+  --brand-soft: #fbeadb;
+  --brand-ink: #9a4409;
+  --ok: #2f7d4f;
+  --ok-soft: #e3f1e7;
+  --bad: #b42318;
+  --bad-soft: #fbe5e2;
+  --warn: #b54708;
+  --warn-soft: #fcefd9;
+  --gone: #6b665c;
+  --gone-soft: #ebe8e1;
+  --moved: #3f5f8a;
+  --shadow: none;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0b1120;
-    --surface: #111a2e;
-    --surface2: #16203a;
-    --line: #25304a;
-    --ink: #e8edf7;
-    --muted: #9aa8c2;
-    --faint: #6b7a99;
-    --brand: #60a5fa;
-    --brand-soft: #17263f;
-    --brand-ink: #93c5fd;
-    --ok: #4ade80;
-    --ok-soft: #10301f;
-    --bad: #f87171;
-    --bad-soft: #3a1717;
-    --warn: #fb923c;
-    --warn-soft: #3a2312;
-    --gone: #94a3b8;
-    --gone-soft: #1f2940;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
+    --bg: #151412;
+    --surface: #1d1b18;
+    --surface2: #24221e;
+    --line: #36322c;
+    --ink: #ede9e1;
+    --muted: #aaa497;
+    --faint: #7a756b;
+    --brand: #f08a3c;
+    --brand-soft: #3a2516;
+    --brand-ink: #f6b07a;
+    --ok: #6cc28f;
+    --ok-soft: #1a2e22;
+    --bad: #f0857a;
+    --bad-soft: #3a1c18;
+    --warn: #f0a35e;
+    --warn-soft: #3a2914;
+    --gone: #a8a296;
+    --gone-soft: #2b2925;
+    --moved: #8fb0d9;
+    --shadow: none;
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #0b1120;
-  --surface: #111a2e;
-  --surface2: #16203a;
-  --line: #25304a;
-  --ink: #e8edf7;
-  --muted: #9aa8c2;
-  --faint: #6b7a99;
-  --brand: #60a5fa;
-  --brand-soft: #17263f;
-  --brand-ink: #93c5fd;
-  --ok: #4ade80;
-  --ok-soft: #10301f;
-  --bad: #f87171;
-  --bad-soft: #3a1717;
-  --warn: #fb923c;
-  --warn-soft: #3a2312;
-  --gone: #94a3b8;
-  --gone-soft: #1f2940;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --bg: #151412;
+  --surface: #1d1b18;
+  --surface2: #24221e;
+  --line: #36322c;
+  --ink: #ede9e1;
+  --muted: #aaa497;
+  --faint: #7a756b;
+  --brand: #f08a3c;
+  --brand-soft: #3a2516;
+  --brand-ink: #f6b07a;
+  --ok: #6cc28f;
+  --ok-soft: #1a2e22;
+  --bad: #f0857a;
+  --bad-soft: #3a1c18;
+  --warn: #f0a35e;
+  --warn-soft: #3a2914;
+  --gone: #a8a296;
+  --gone-soft: #2b2925;
+  --moved: #8fb0d9;
+  --shadow: none;
 }
 
 body {
@@ -106,7 +109,7 @@ body {
 /* ตอนพิมพ์ (PDF) ใช้สีโทนสว่างเสมอ แม้ผู้ใช้เปิดธีมมืดอยู่ */
 @media print {
   :root, :root:not([data-theme='light']), :root[data-theme='dark'] {
-    --bg: #ffffff; --surface: #ffffff; --surface2: #ffffff; --line: #d1d5db;
+    --bg: #ffffff; --surface: #ffffff; --surface2: #ffffff; --line: #cfcabd;
     --ink: #000000; --muted: #374151; --faint: #6b7280;
   }
   body { background: #ffffff !important; }

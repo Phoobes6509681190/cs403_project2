@@ -4,18 +4,18 @@ import Icon from './icon'
 import { STATUS } from '../data/statusConfig'
 import { nf } from '../utils/format'
 
-export function Card({ className = '', children }) {
+export function Card({ className = '', children, style }) {
   return (
-    <section className={`bg-surface border border-line rounded-2xl shadow-card ${className}`}>{children}</section>
+    <section className={`bg-surface border border-line rounded-xl ${className}`} style={style}>{children}</section>
   )
 }
 
 export function Btn({ variant = 'ghost', className = '', children, disabled, ...rest }) {
   const base =
-    'inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+    'inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
   const styles = {
-    primary: 'bg-brand text-white hover:opacity-90',
-    ghost: 'border border-line text-ink hover:bg-surface2',
+    primary: 'bg-brand text-white hover:bg-brandink',
+    ghost: 'border border-line bg-surface text-ink hover:border-ink/40',
     danger: 'bg-bad text-white hover:opacity-90',
   }
   return (
@@ -28,8 +28,11 @@ export function Btn({ variant = 'ghost', className = '', children, disabled, ...
 export function StatusPill({ status }) {
   const s = STATUS[status] || STATUS.missing
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium ${s.cls}`}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
+    <span
+      className="inline-flex items-center gap-1.5 pl-1.5 pr-2 py-0.5 rounded-[3px] border text-[12px] font-medium whitespace-nowrap"
+      style={{ color: s.dot, borderColor: `color-mix(in srgb, ${s.dot} 45%, transparent)` }}
+    >
+      <span className="w-2 h-2 rounded-[1px]" style={{ background: s.dot }} />
       {s.label}
     </span>
   )
@@ -39,7 +42,7 @@ export function RolePill({ role }) {
   const isAdmin = role === 'admin'
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[11px] font-medium ${
         isAdmin ? 'bg-brandsoft text-brandink' : 'bg-surface2 text-muted'
       }`}
     >
@@ -91,15 +94,10 @@ export function SelectField({ label, required, options, className = '', ...rest 
 
 export function StatCard({ label, value, sub, color }) {
   return (
-    <Card className="p-4">
-      <p className="text-[12px] text-muted flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full" style={{ background: color || 'var(--muted)' }} />
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-bold" style={{ color: color || 'var(--ink)' }}>
-        {nf(value)}
-      </p>
-      <p className="text-[11px] text-faint">{sub}</p>
+    <Card className="p-4 border-l-[3px]" style={{ borderLeftColor: color || 'var(--ink)' }}>
+      <p className="text-[12px] text-muted">{label}</p>
+      <p className="mt-1 text-[28px] leading-none font-semibold font-mono tabular-nums">{nf(value)}</p>
+      <p className="mt-1.5 text-[11px] text-faint">{sub}</p>
     </Card>
   )
 }
@@ -108,8 +106,8 @@ export function ProgressBar({ value, max, label }) {
   const percent = max ? Math.min(100, Math.round((value / max) * 100)) : 0
   return (
     <div>
-      <div className="h-2.5 rounded-full bg-surface2 overflow-hidden">
-        <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${percent}%` }} />
+      <div className="h-1.5 bg-line/60 overflow-hidden">
+        <div className="h-full bg-brand transition-all" style={{ width: `${percent}%` }} />
       </div>
       {label !== false && <p className="mt-1.5 text-[12px] text-faint text-right">{label ?? `${percent}%`}</p>}
     </div>
@@ -163,7 +161,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-surface border border-line rounded-2xl shadow-card`}>
+      <div className={`relative w-full ${sizes[size]} bg-surface border border-line rounded-xl`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h3 className="font-semibold">{title}</h3>
           <button onClick={onClose} className="text-faint hover:text-ink p-1" aria-label="ปิด">
@@ -226,7 +224,7 @@ export function ToastProvider({ children }) {
       {createPortal(
         <div className="fixed bottom-4 right-4 z-[60] space-y-2 w-full max-w-xs">
           {toasts.map((t) => (
-            <div key={t.id} className={`rounded-xl border px-4 py-3 text-[13px] shadow-card ${styles[t.type]}`}>
+            <div key={t.id} className={`rounded-xl border px-4 py-3 text-[13px]  ${styles[t.type]}`}>
               {t.message}
             </div>
           ))}
@@ -251,8 +249,8 @@ export function RoomBars({ data, max }) {
       {data.map((r) => (
         <div key={r.room} className="flex items-center gap-3 text-[12px]">
           <span className="w-36 text-muted shrink-0 truncate" title={r.room}>{r.room}</span>
-          <div className="flex-1 h-2.5 rounded-full bg-surface2 overflow-hidden">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${(r.count / max) * 100}%` }} />
+          <div className="flex-1 h-2 bg-line/50 overflow-hidden">
+            <div className="h-full bg-brand" style={{ width: `${(r.count / max) * 100}%` }} />
           </div>
           <span className="w-12 text-right tabular-nums text-muted">{nf(r.count)}</span>
         </div>

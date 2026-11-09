@@ -30,24 +30,24 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
           </div>
         </div>
 
-        <p className="px-5 pb-2 text-[11px] text-faint">เมนูหลัก</p>
+        <p className="mx-5 pt-3 pb-2 text-[11px] text-faint tracking-wide border-t border-line">เมนู</p>
 
-        <nav className="px-3 space-y-1">
+        <nav className="px-3 space-y-0.5">
           {visibleNav.map((n) => (
             <NavLink
               key={n.key}
               to={n.path}
               onClick={() => setOpen(false)}
               className={() =>
-                `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors
-                 ${n.key === activeKey ? 'bg-brandsoft text-brandink' : 'text-muted hover:bg-surface2 hover:text-ink'}`
+                `relative w-full flex items-center gap-3 px-3 py-2 text-[13px] transition-colors
+                 ${n.key === activeKey ? 'text-ink font-semibold bg-surface2' : 'text-muted font-medium hover:text-ink'}`
               }
             >
               {() => (
                 <>
                   <Icon name={n.icon} />
                   {n.label}
-                  {n.key === activeKey && <span className="ml-auto w-1 h-5 rounded-full bg-brand" />}
+                  {n.key === activeKey && <span className="absolute -left-3 top-1 bottom-1 w-[3px] bg-brand" />}
                 </>
               )}
             </NavLink>
