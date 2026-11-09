@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import Icon, { Logo } from './icon'
 import { NAV } from '../data/nav'
 import { RolePill } from './UI'
@@ -7,6 +7,11 @@ import { useAuth } from '../hooks/useAuth'
 export default function Sidebar({ open, setOpen, onLogoutClick }) {
   const { user, role } = useAuth()
   const visibleNav = NAV.filter((n) => n.roles.includes(role))
+  // ไฮไลต์เมนูที่ path ตรงที่สุดเพียงอันเดียว (เช่น /assets/import ไม่ให้ "ครุภัณฑ์" ติดด้วย)
+  const { pathname } = useLocation()
+  const activeKey = visibleNav
+    .filter((n) => pathname === n.path || pathname.startsWith(n.path + '/'))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.key
 
   return (
     <>
@@ -33,16 +38,16 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
               key={n.key}
               to={n.path}
               onClick={() => setOpen(false)}
-              className={({ isActive }) =>
+              className={() =>
                 `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors
-                 ${isActive ? 'bg-brandsoft text-brandink' : 'text-muted hover:bg-surface2 hover:text-ink'}`
+                 ${n.key === activeKey ? 'bg-brandsoft text-brandink' : 'text-muted hover:bg-surface2 hover:text-ink'}`
               }
             >
-              {({ isActive }) => (
+              {() => (
                 <>
                   <Icon name={n.icon} />
                   {n.label}
-                  {isActive && <span className="ml-auto w-1 h-5 rounded-full bg-brand" />}
+                  {n.key === activeKey && <span className="ml-auto w-1 h-5 rounded-full bg-brand" />}
                 </>
               )}
             </NavLink>

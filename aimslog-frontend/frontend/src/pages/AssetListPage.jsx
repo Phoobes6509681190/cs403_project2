@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getUsers } from '../services/userService'
 import Icon from '../components/icon'
 import {
   Card, Btn, StatusPill, Field, SelectField, Modal, ConfirmDialog,
@@ -14,7 +15,7 @@ import { nf } from '../utils/format'
 const PER_PAGE = 10
 
 const emptyForm = {
-  code: '', name: '', model: '', brand: '', cat: '', room: '', owner: '', budget: '', price: '', status: 'ok',
+  code: '', name: '', model: '', brand: '', cat: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
 }
 
 export default function AssetListPage() {
@@ -25,16 +26,22 @@ export default function AssetListPage() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [room, setRoom] = useState('')
+  const [budget, setBudget] = useState('')
   const [page, setPage] = useState(1)
   const debouncedQ = useDebounce(q, 400)
 
-  const [result, setResult] = useState({ items: [], total: 0, rooms: [] })
+  const [result, setResult] = useState({ items: [], total: 0, rooms: [], budgets: [] })
   const [state, setState] = useState('loading')
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+
+  const [users, setUsers] = useState([])
+  useEffect(() => {
+    if (canEdit) getUsers().then((d) => setUsers(d.items || [])).catch(() => {})
+  }, [canEdit])
 
   const [toDelete, setToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -46,6 +53,7 @@ export default function AssetListPage() {
         q: debouncedQ || undefined,
         status: status || undefined,
         room: room || undefined,
+        budget: budget || undefined,
         page,
         perPage: PER_PAGE,
       })
@@ -59,11 +67,11 @@ export default function AssetListPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ, status, room, page])
+  }, [debouncedQ, status, room, budget, page])
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedQ, status, room])
+  }, [debouncedQ, status, room, budget])
 
   const openCreate = () => {
     setEditing(null)
@@ -73,7 +81,8 @@ export default function AssetListPage() {
 
   const openEdit = (asset) => {
     setEditing(asset)
-    setForm({ ...emptyForm, ...asset })
+    // เอาเฉพาะฟิลด์ในฟอร์ม (ไม่ส่ง location/codeParts เดิมกลับไปทับค่าที่แก้)
+    setForm(Object.fromEntries(Object.keys(emptyForm).map((k) => [k, asset[k] ?? ''])))
     setFormOpen(true)
   }
 
@@ -113,11 +122,21 @@ export default function AssetListPage() {
 
   const pages = Math.max(1, Math.ceil((result.total || 0) / PER_PAGE))
   const rooms = result.rooms || []
+  const budgets = result.budgets || []
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-semibold mr-auto">รายการครุภัณฑ์ทั้งหมด</h2>
+        {canEdit && (
+          <Link
+            to={`/assets/labels?${new URLSearchParams(
+              Object.entries({ q: debouncedQ, status, room, budget }).filter(([, v]) => v)
+            )}`}
+          >
+            <Btn>พิมพ์ QR ({nf(result.total || 0)})</Btn>
+          </Link>
+        )}
         {canEdit && (
           <Btn variant="primary" onClick={openCreate}>
             <Icon name="plus" /> เพิ่มครุภัณฑ์
@@ -134,7 +153,7 @@ export default function AssetListPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหารหัส ชื่อ หรือรุ่นครุภัณฑ์"
+              placeholder="ค้นหาเลขครุภัณฑ์ ชื่อ ยี่ห้อ สถานที่ หรือผู้ถือครอง"
               className="w-full rounded-xl border border-line bg-surface pl-10 pr-3 py-2 text-[13px] placeholder:text-faint"
             />
           </div>
@@ -154,6 +173,12 @@ export default function AssetListPage() {
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
+          <select value={budget} onChange={(e) => setBudget(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
+            <option value="">ทุกงบประมาณ</option>
+            {budgets.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
 
           <span className="text-[12px] text-faint ml-auto">พบ {nf(result.total || 0)} รายการ</span>
         </div>
@@ -167,7 +192,7 @@ export default function AssetListPage() {
               <table className="w-full min-w-[820px] text-[13px]">
                 <thead>
                   <tr className="text-[12px] text-muted border-b border-line">
-                    {['รหัสครุภัณฑ์', 'ชื่อครุภัณฑ์', 'ยี่ห้อ', 'สถานที่', 'ผู้ดูแล', 'สถานะ', ''].map((h) => (
+                    {['รหัสครุภัณฑ์', 'ชื่อครุภัณฑ์', 'ยี่ห้อ', 'สถานที่', 'ผู้ถือครอง', 'สถานะ', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -241,14 +266,23 @@ export default function AssetListPage() {
         }
       >
         <form id="asset-form" onSubmit={submitForm} className="grid grid-cols-2 gap-3">
-          <Field label="รหัสครุภัณฑ์" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <Field label="เลขครุภัณฑ์" placeholder="เช่น วทท-8พ-69-1/70" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
           <Field label="ชื่อครุภัณฑ์" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Field label="รุ่น" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
           <Field label="ยี่ห้อ" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
           <Field label="ประเภท" value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })} />
           <Field label="สถานที่/ห้อง" required value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
-          <Field label="ผู้ดูแล" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
-          <Field label="งบประมาณ" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
+          <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
+          <SelectField
+            label="บัญชีผู้ถือครอง (ถ้ามี)"
+            value={form.holderUser || ''}
+            onChange={(e) => {
+              const u = users.find((x) => x.id === e.target.value)
+              setForm({ ...form, holderUser: e.target.value, owner: form.owner || u?.name || '' })
+            }}
+            options={[{ value: '', label: '— ไม่ผูกบัญชี —' }, ...users.map((u) => ({ value: u.id, label: u.name || u.username }))]}
+          />
+          <Field label="งบประมาณ" value={form.budget} placeholder="เว้นว่าง = ดูจากเลขครุภัณฑ์" hint="ระบบอ่านงบจากตัวย่อในเลขครุภัณฑ์ให้อัตโนมัติ" onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           <Field label="ราคา (บาท)" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           <SelectField
             label="สถานะ"

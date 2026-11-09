@@ -1,24 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import Icon from '../components/icon'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import {
-  Card, Btn, ProgressBar, ConfirmDialog, LoadingState, ErrorState, EmptyState, useToast,
+  Card, Btn, ProgressBar, ConfirmDialog, LoadingState, ErrorState, EmptyState, StatusPill, useToast,
 } from '../components/UI'
 import {
-  getActiveInspection, submitInspectionItem, getInspectionProgress, closeInspection,
+  getActiveInspection, getInspection, submitInspectionItem, getInspectionProgress, closeInspection,
 } from '../services/inspectionService'
 import { usePolling } from '../hooks/usePolling'
+import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
-import { nf } from '../utils/format'
-
-const BIG_ACTIONS = [
-  { key: 'ok', label: 'ปกติ', cls: 'bg-oksoft text-ok border-ok/30 hover:bg-ok hover:text-white' },
-  { key: 'broken', label: 'ชำรุด', cls: 'bg-badsoft text-bad border-bad/30 hover:bg-bad hover:text-white' },
-  { key: 'repair', label: 'รอซ่อม', cls: 'bg-warnsoft text-warn border-warn/30 hover:bg-warn hover:text-white' },
-  { key: 'missing', label: 'ไม่พบ', cls: 'bg-gonesoft text-gone border-gone/30 hover:bg-gone hover:text-white' },
-]
+import { InspectButtons } from '../components/InspectButtons'
+import { nf, formatDateTimeTH } from '../utils/format'
 
 export default function InspectionPage() {
+  const { id } = useParams()
   const { role } = useAuth()
   const toast = useToast()
   const [inspection, setInspection] = useState(null)
@@ -26,40 +21,43 @@ export default function InspectionPage() {
   const [confirmClose, setConfirmClose] = useState(false)
   const [closing, setClosing] = useState(false)
   const [submittingId, setSubmittingId] = useState(null)
+  const [tab, setTab] = useState('pending')
+  const [q, setQ] = useState('')
+  const debouncedQ = useDebounce(q, 200)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setState('loading')
     try {
-      const data = await getActiveInspection()
+      const data = id ? await getInspection(id) : await getActiveInspection()
       setInspection(data)
       setState(data ? 'ready' : 'empty')
     } catch {
       setState('error')
     }
-  }
+  }, [id])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
-  // Sprint 4: progress bar แบบ real-time ด้วย polling (ดูเหตุผลเลือก polling ใน hooks/usePolling.js)
-  const progressFetch = useCallback(() => {
-    if (!inspection) return Promise.resolve(null)
-    return getInspectionProgress(inspection.id)
-  }, [inspection])
-
-  const { data: progress } = usePolling(progressFetch, { intervalMs: 3000, enabled: !!inspection })
+  const isOpen = inspection?.status === 'open'
+  const progressFetch = useCallback(
+    () => (inspection ? getInspectionProgress(inspection.id) : Promise.resolve(null)),
+    [inspection]
+  )
+  // Real-time แบบ polling ทุก 3 วิ (เฉพาะรอบที่ยังเปิด)
+  const { data: progress } = usePolling(progressFetch, { intervalMs: 3000, enabled: !!inspection && isOpen })
 
   const markStatus = async (assetId, status) => {
     setSubmittingId(assetId)
     try {
-      await submitInspectionItem(inspection.id, assetId, status)
+      const { item } = await submitInspectionItem(inspection.id, assetId, status)
       setInspection((prev) => ({
         ...prev,
-        items: prev.items.map((it) => (it.assetId === assetId ? { ...it, status, checked: true } : it)),
+        items: prev.items.map((it) => (it.assetId === assetId ? item : it)),
       }))
-    } catch {
-      toast.error('บันทึกผลตรวจนับไม่สำเร็จ')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'บันทึกผลตรวจนับไม่สำเร็จ')
     } finally {
       setSubmittingId(null)
     }
@@ -72,12 +70,20 @@ export default function InspectionPage() {
       toast.success('ปิดรอบตรวจนับเรียบร้อยแล้ว')
       setConfirmClose(false)
       load()
-    } catch {
-      toast.error('ปิดรอบไม่สำเร็จ กรุณาลองใหม่')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ปิดรอบไม่สำเร็จ กรุณาลองใหม่')
     } finally {
       setClosing(false)
     }
   }
+
+  const items = inspection?.items || []
+  const filtered = useMemo(() => {
+    const needle = debouncedQ.trim().toLowerCase()
+    return items
+      .filter((i) => (tab === 'pending' ? !i.checked : i.checked))
+      .filter((i) => !needle || [i.code, i.name, i.room, i.owner].some((v) => v?.toLowerCase().includes(needle)))
+  }, [items, tab, debouncedQ])
 
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดข้อมูลรอบตรวจนับไม่สำเร็จ" />
@@ -97,58 +103,115 @@ export default function InspectionPage() {
     )
   }
 
-  const total = progress?.total ?? inspection.items.length
-  const checked = progress?.checked ?? inspection.items.filter((i) => i.checked).length
-  const pending = inspection.items.filter((i) => !i.checked)
+  const mine = inspection.scope === 'mine'
+  // ผู้ใช้ทั่วไปนับเฉพาะของตัวเอง, กรรมการใช้ตัวเลขรวมจาก polling
+  const total = mine ? items.length : progress?.total ?? items.length
+  const checked = mine ? items.filter((i) => i.checked).length : progress?.checked ?? items.filter((i) => i.checked).length
+  const MAX_SHOW = 100
 
   return (
     <div className="space-y-4">
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-semibold">รอบปีงบประมาณ {inspection.budgetYear}</p>
-            <p className="text-[12px] text-muted">กรรมการ {inspection.committee?.length ?? 0} คน</p>
+            <p className="font-semibold">
+              รอบปีงบประมาณ {inspection.budgetYear}{' '}
+              {!isOpen && <span className="ml-1 text-[12px] font-normal text-muted">(ปิดแล้ว {formatDateTimeTH(inspection.closedAt)})</span>}
+            </p>
+            <p className="text-[12px] text-muted">
+              กรรมการ: {inspection.committee.map((c) => c.name).join(', ') || '—'}
+            </p>
+            {mine && isOpen && (
+              <p className="text-[12px] text-brand mt-1">
+                คุณไม่ได้เป็นกรรมการรอบนี้ — ยืนยันสภาพครุภัณฑ์ที่คุณถือครองได้ด้านล่าง
+              </p>
+            )}
           </div>
-          {role === 'admin' && (
+          {role === 'admin' && isOpen && (
             <Btn variant="danger" onClick={() => setConfirmClose(true)}>ปิดรอบ</Btn>
           )}
         </div>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />
+          {!mine && progress?.selfChecked > 0 && (
+            <p className="text-[11px] text-faint mt-1">ผู้ถือครองยืนยันเอง {nf(progress.selfChecked)} รายการ</p>
+          )}
         </div>
       </Card>
 
       <Card className="p-4">
-        <h3 className="font-semibold mb-3">รายการที่ยังไม่ตรวจ ({nf(pending.length)})</h3>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="flex rounded-xl border border-line p-1 text-[13px]">
+            {[
+              ['pending', `ยังไม่ตรวจ (${nf(items.filter((i) => !i.checked).length)})`],
+              ['done', `ตรวจแล้ว (${nf(items.filter((i) => i.checked).length)})`],
+            ].map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setTab(k)}
+                className={`px-3 py-1.5 rounded-lg ${tab === k ? 'bg-brandsoft text-brandink font-medium' : 'text-muted'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="ค้นหาเลขครุภัณฑ์ ชื่อ ห้อง ผู้ถือครอง"
+            className="flex-1 min-w-[200px] rounded-xl border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-faint"
+          />
+        </div>
+
         <ul className="divide-y divide-line">
-          {pending.map((item) => (
-            <li key={item.assetId} className="py-3 flex flex-wrap items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-[13px]">{item.name}</p>
-                <p className="text-[11px] text-faint truncate">{item.code} · {item.room}</p>
+          {filtered.slice(0, MAX_SHOW).map((item) => (
+            <li key={item.assetId} className="py-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <Link to={`/assets/${item.assetId}`} className="font-medium text-[13px] hover:text-brand">
+                    {item.name}
+                  </Link>
+                  <p className="text-[11px] text-faint">
+                    {item.code} · {item.room || 'ไม่ระบุสถานที่'}{item.owner ? ` · ${item.owner}` : ''}
+                  </p>
+                  {item.checked && (
+                    <p className="text-[11px] text-muted">
+                      ตรวจโดย {item.checkedBy} {item.method === 'self' && '(ผู้ถือครอง)'} · {formatDateTimeTH(item.checkedAt)}
+                    </p>
+                  )}
+                </div>
+                {item.checked && <StatusPill status={item.status} />}
               </div>
-              <div className="flex items-center gap-2">
-                {BIG_ACTIONS.map((a) => (
-                  <button
-                    key={a.key}
-                    disabled={submittingId === item.assetId}
-                    onClick={() => markStatus(item.assetId, a.key)}
-                    className={`px-4 py-2.5 rounded-xl text-[13px] font-semibold border transition-colors disabled:opacity-50 ${a.cls}`}
-                  >
-                    {a.label}
-                  </button>
-                ))}
-              </div>
+              {isOpen && item.canInspect && (
+                <InspectButtons
+                  current={item.status}
+                  disabled={submittingId === item.assetId}
+                  onPick={(s) => markStatus(item.assetId, s)}
+                />
+              )}
             </li>
           ))}
-          {pending.length === 0 && <EmptyState message="ตรวจนับครบทุกรายการแล้ว 🎉" />}
         </ul>
+        {filtered.length > MAX_SHOW && (
+          <p className="text-[12px] text-faint text-center pt-3">
+            แสดง {MAX_SHOW} จาก {nf(filtered.length)} รายการ — พิมพ์ค้นหาเพื่อหาชิ้นที่ต้องการ
+          </p>
+        )}
+        {filtered.length === 0 && (
+          <EmptyState
+            message={
+              q ? 'ไม่พบรายการที่ค้นหา'
+                : tab === 'pending' ? (items.length ? 'ตรวจนับครบทุกรายการแล้ว' : 'ไม่มีครุภัณฑ์ที่คุณถือครองในรอบนี้')
+                : 'ยังไม่มีรายการที่ตรวจแล้ว'
+            }
+          />
+        )}
       </Card>
 
       <ConfirmDialog
         open={confirmClose}
         title="ปิดรอบตรวจนับ"
-        message={`ยืนยันปิดรอบตรวจนับปีงบประมาณ ${inspection.budgetYear}? หลังปิดรอบแล้วจะแก้ไขผลตรวจนับไม่ได้อีก`}
+        message={`ยืนยันปิดรอบตรวจนับปีงบประมาณ ${inspection.budgetYear}? ยังไม่ได้ตรวจ ${nf(total - checked)} รายการ — หลังปิดรอบจะบันทึกผลเพิ่มไม่ได้อีก`}
         confirmLabel="ปิดรอบ"
         danger
         loading={closing}

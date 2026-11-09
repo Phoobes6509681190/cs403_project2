@@ -46,10 +46,15 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar open={menuOpen} setOpen={setMenuOpen} onLogoutClick={() => setConfirmLogout(true)} />
+      {/* ซ่อนเมนูตอนสั่งพิมพ์ (หน้าพิมพ์ QR / รายงาน) */}
+      <div className="contents print:hidden">
+        <Sidebar open={menuOpen} setOpen={setMenuOpen} onLogoutClick={() => setConfirmLogout(true)} />
+      </div>
 
-      <main className="flex-1 min-w-0 p-4 sm:p-6">
-        <Topbar title={title} onMenu={() => setMenuOpen(true)} onToggleTheme={toggleTheme} />
+      <main className="flex-1 min-w-0 p-4 sm:p-6 print:p-0">
+        <div className="print:hidden">
+          <Topbar title={title} onMenu={() => setMenuOpen(true)} onToggleTheme={toggleTheme} />
+        </div>
         <Outlet />
       </main>
 

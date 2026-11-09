@@ -250,7 +250,7 @@ export function RoomBars({ data, max }) {
     <div className="space-y-2.5">
       {data.map((r) => (
         <div key={r.room} className="flex items-center gap-3 text-[12px]">
-          <span className="w-16 text-muted shrink-0">{r.room}</span>
+          <span className="w-36 text-muted shrink-0 truncate" title={r.room}>{r.room}</span>
           <div className="flex-1 h-2.5 rounded-full bg-surface2 overflow-hidden">
             <div className="h-full rounded-full bg-brand" style={{ width: `${(r.count / max) * 100}%` }} />
           </div>

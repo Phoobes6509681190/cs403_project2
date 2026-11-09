@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, Btn, StatCard, StatusPill, RoomBars, LoadingState, ErrorState } from '../components/UI'
+import { Card, Btn, StatCard, StatusPill, RoomBars, ProgressBar, LoadingState, ErrorState } from '../components/UI'
 import { getReportSummary } from '../services/reportService'
 import { getAssets } from '../services/assetService'
-import { pct } from '../utils/format'
+import { pct, nf } from '../utils/format'
 
 export default function Dashboard() {
   const [summary, setSummary] = useState(null)
@@ -32,17 +32,29 @@ export default function Dashboard() {
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดข้อมูลภาพรวมไม่สำเร็จ" />
 
-  const { total = 0, byStatus = {}, byRoom = [] } = summary || {}
+  const { total = 0, byStatus = {}, byRoom = [], inspection, transferred = 0 } = summary || {}
+  const brokenAll = (byStatus.broken || 0) + (byStatus.disposal || 0)
   const max = Math.max(1, ...byRoom.map((r) => r.count))
 
   return (
     <div className="space-y-5">
+      {inspection?.status === 'open' && (
+        <Link to="/inspection" className="block">
+          <Card className="p-4 hover:bg-surface2">
+            <ProgressBar
+              value={inspection.progress.checked}
+              max={inspection.progress.total}
+              label={`รอบตรวจนับปี ${inspection.budgetYear} กำลังดำเนินการ — ตรวจแล้ว ${nf(inspection.progress.checked)} จาก ${nf(inspection.progress.total)} รายการ`}
+            />
+          </Card>
+        </Link>
+      )}
       <div className="grid gap-4 grid-cols-2 xl:grid-cols-5">
-        <StatCard label="ทั้งหมด" value={total} sub="รายการในระบบ" />
+        <StatCard label="ทั้งหมด" value={total} sub={`ไม่รวมตัดโอน ${nf(transferred)} รายการ`} />
         <StatCard label="ปกติ" value={byStatus.ok || 0} sub={`${pct(byStatus.ok, total)}% ของทั้งหมด`} color="var(--ok)" />
-        <StatCard label="ชำรุด" value={byStatus.broken || 0} sub={`${pct(byStatus.broken, total)}% ของทั้งหมด`} color="var(--bad)" />
-        <StatCard label="รอดำเนินการซ่อม" value={byStatus.repair || 0} sub={`${pct(byStatus.repair, total)}% ของทั้งหมด`} color="var(--warn)" />
-        <StatCard label="ไม่พบครุภัณฑ์" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}% ของทั้งหมด`} color="var(--gone)" />
+        <StatCard label="ชำรุด" value={brokenAll} sub={`ซ่อมได้ ${nf(byStatus.broken)} · ซ่อมไม่ได้ ${nf(byStatus.disposal)}`} color="var(--bad)" />
+        <StatCard label="หมดความจำเป็น" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}% ของทั้งหมด`} color="var(--warn)" />
+        <StatCard label="ไม่พบพัสดุ" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}% ของทั้งหมด`} color="var(--gone)" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -91,7 +103,7 @@ export default function Dashboard() {
         </Card>
 
         <Card className="p-4">
-          <h2 className="font-semibold mb-3">ครุภัณฑ์ตามห้อง</h2>
+          <h2 className="font-semibold mb-3">ครุภัณฑ์ตามสถานที่</h2>
           {byRoom.length ? <RoomBars data={byRoom} max={max} /> : <p className="text-[13px] text-muted">ไม่มีข้อมูล</p>}
         </Card>
       </div>
