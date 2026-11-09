@@ -96,11 +96,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        <p className="mt-6 pt-5 border-t border-line text-center text-[11px] text-faint leading-relaxed">
-          เข้าใช้ได้เฉพาะบุคลากรสาขาวิทยาการคอมพิวเตอร์
-          <br />
-          มหาวิทยาลัยธรรมศาสตร์
-        </p>
       </Card>
     </main>
   )
