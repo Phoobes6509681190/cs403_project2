@@ -40,11 +40,13 @@ export function previewImport(file) {
   return api.post('/assets/import/preview', fd).then((res) => res.data)
 }
 
-export function commitImport(file, { statusMapping = {}, budgetMapping = {} } = {}) {
+// updates = { assetId: ['status', 'location', ...] } ฟิลด์ที่เลือกใช้ค่าจากไฟล์แทนค่าในระบบ
+export function commitImport(file, { statusMapping = {}, budgetMapping = {}, updates = {} } = {}) {
   const fd = new FormData()
   fd.append('file', file)
   fd.append('statusMapping', JSON.stringify(statusMapping))
   fd.append('budgetMapping', JSON.stringify(budgetMapping))
+  fd.append('updates', JSON.stringify(updates))
   return api.post('/assets/import', fd).then((res) => res.data)
 }
 
