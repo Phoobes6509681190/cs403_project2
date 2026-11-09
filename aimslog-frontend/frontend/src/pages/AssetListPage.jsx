@@ -200,7 +200,7 @@ export default function AssetListPage() {
                 <tbody>
                   {result.items.map((a) => (
                     <tr key={a.id} className="border-b border-line last:border-0 hover:bg-surface2">
-                      <td className="py-3 pr-3 text-muted tabular-nums whitespace-nowrap">
+                      <td className="py-3 pr-3 text-muted font-mono text-[12px] tabular-nums whitespace-nowrap">
                         <Link to={`/assets/${a.id}`} className="hover:text-brand hover:underline">{a.code}</Link>
                       </td>
                       <td className="py-3 pr-3">

@@ -112,7 +112,7 @@ export default function TrashPage() {
               <tbody>
                 {items.map((a) => (
                   <tr key={a.id} className="border-b border-line last:border-0">
-                    <td className="py-2.5 pr-3 tabular-nums whitespace-nowrap text-muted">{a.code}</td>
+                    <td className="py-2.5 pr-3 font-mono text-[12px] tabular-nums whitespace-nowrap text-muted">{a.code}</td>
                     <td className="py-2.5 pr-3">{a.name}</td>
                     <td className="py-2.5 pr-3 text-muted">{a.room || '—'}</td>
                     <td className="py-2.5 pr-3"><StatusPill status={a.status} /></td>

@@ -24,7 +24,11 @@ export default {
         gonesoft: 'var(--gone-soft)',
       },
       boxShadow: { card: 'var(--shadow)' },
-      fontFamily: { sans: ['"IBM Plex Sans Thai"', '"Noto Sans Thai"', 'system-ui', 'sans-serif'] },
+      fontFamily: {
+        sans: ['"IBM Plex Sans Thai"', '"Noto Sans Thai"', 'system-ui', 'sans-serif'],
+        // เลขครุภัณฑ์/ตัวเลขในตาราง ใช้ฟอนต์ความกว้างเท่ากัน อ่านเทียบแนวได้ง่าย
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+      },
     },
   },
   plugins: [],

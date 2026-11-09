@@ -79,7 +79,7 @@ export default function Dashboard() {
               <tbody>
                 {latest.map((a) => (
                   <tr key={a.id} className="border-b border-line last:border-0">
-                    <td className="py-3 pr-3 text-muted tabular-nums">{a.code}</td>
+                    <td className="py-3 pr-3 text-muted font-mono text-[12px] tabular-nums">{a.code}</td>
                     <td className="py-3 pr-3">
                       <p className="font-medium">{a.name}</p>
                       <p className="text-[11px] text-faint">{a.model}</p>

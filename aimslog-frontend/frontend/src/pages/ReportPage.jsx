@@ -182,7 +182,7 @@ export default function ReportPage() {
                   className={`border-b border-line last:border-0 break-inside-avoid ${i >= DETAIL_SCREEN_LIMIT ? 'hidden print:table-row' : ''}`}
                 >
                   <td className="py-2 pr-3 text-faint tabular-nums">{i + 1}</td>
-                  <td className="py-2 pr-3 tabular-nums whitespace-nowrap">{r.code}</td>
+                  <td className="py-2 pr-3 font-mono text-[12px] tabular-nums whitespace-nowrap">{r.code}</td>
                   <td className="py-2 pr-3">{r.name}</td>
                   <td className="py-2 pr-3 text-muted">{r.budget}</td>
                   <td className="py-2 pr-3 text-muted">{r.room}</td>

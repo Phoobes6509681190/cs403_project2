@@ -63,7 +63,7 @@ export default function AssetDetailPage() {
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[12px] text-faint tabular-nums">{asset.code}</p>
+            <p className="text-[12px] text-faint font-mono text-[12px] tabular-nums">{asset.code}</p>
             <h2 className="text-lg font-bold">{asset.name}</h2>
             <p className="text-[13px] text-muted">{[asset.brand, asset.model].filter(Boolean).join(' · ') || '—'}</p>
           </div>

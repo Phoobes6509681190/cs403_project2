@@ -9,7 +9,7 @@ import {
 import { usePolling } from '../hooks/usePolling'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
-import { InspectButtons } from '../components/InspectButtons'
+import { InspectButtons, INSPECT_ACTIONS } from '../components/InspectButtons'
 import { STATUS } from '../data/statusConfig'
 import { nf, formatDateTimeTH } from '../utils/format'
 
@@ -27,6 +27,7 @@ export default function InspectionPage() {
   const [room, setRoom] = useState('')
   const [editingId, setEditingId] = useState(null) // ชิ้นที่ตรวจแล้วและกำลังแก้ผล
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkStatus, setBulkStatus] = useState('ok')
   const [bulking, setBulking] = useState(false)
   const debouncedQ = useDebounce(q, 200)
 
@@ -95,8 +96,8 @@ export default function InspectionPage() {
   const handleBulk = async () => {
     setBulking(true)
     try {
-      const { updated } = await bulkMarkRoom(inspection.id, room)
-      toast.success(`บันทึก "ปกติ" ${nf(updated)} รายการในห้อง ${room || 'ไม่ระบุ'}`)
+      const { updated } = await bulkMarkRoom(inspection.id, room, bulkStatus)
+      toast.success(`บันทึก "${STATUS[bulkStatus].label}" ${nf(updated)} รายการในห้อง ${room || 'ไม่ระบุ'}`)
       setBulkOpen(false)
       load()
     } catch (err) {
@@ -209,11 +210,21 @@ export default function InspectionPage() {
         </div>
 
         {room && isOpen && inspection.isCommittee && roomPending > 0 && (
-          <div className="mb-3 rounded-xl border border-ok/40 bg-oksoft px-4 py-3 flex flex-wrap items-center gap-3">
-            <p className="text-[12px] text-ok flex-1 min-w-[220px]">
-              ตรวจห้องนี้ครบแล้ว? กดชิ้นที่ <b>ผิดปกติ</b> ทีละชิ้นก่อน แล้วยืนยันที่เหลือ {nf(roomPending)} ชิ้นว่าปกติในครั้งเดียว
+          <div className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-3 flex flex-wrap items-center gap-3">
+            <p className="text-[12px] text-muted flex-1 min-w-[220px]">
+              <b className="text-ink">ตรวจทั้งห้อง:</b> กดชิ้นที่ต่างจากส่วนใหญ่ทีละชิ้นก่อน แล้วบันทึกผลให้ที่เหลือ {nf(roomPending)} ชิ้นในครั้งเดียว
             </p>
-            <Btn variant="primary" onClick={() => setBulkOpen(true)}>ที่เหลือ {nf(roomPending)} ชิ้นปกติทั้งหมด</Btn>
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
+              className="rounded-lg border border-line bg-surface px-3 py-2 text-[13px]"
+              aria-label="ผลที่จะบันทึกให้ทั้งห้อง"
+            >
+              {INSPECT_ACTIONS.map((a) => (
+                <option key={a.key} value={a.key}>{STATUS[a.key].label}</option>
+              ))}
+            </select>
+            <Btn variant="primary" onClick={() => setBulkOpen(true)}>บันทึก {nf(roomPending)} ชิ้น</Btn>
           </div>
         )}
         <ul className="divide-y divide-line">
@@ -225,7 +236,7 @@ export default function InspectionPage() {
                     {item.name}
                   </Link>
                   <p className="text-[11px] text-faint">
-                    {item.code} · {item.room || 'ไม่ระบุสถานที่'}{item.owner ? ` · ${item.owner}` : ''}
+                    <span className="font-mono">{item.code}</span> · {item.room || 'ไม่ระบุสถานที่'}{item.owner ? ` · ${item.owner}` : ''}
                   </p>
                   {item.checked && (
                     <p className="text-[11px] text-muted">
@@ -275,8 +286,8 @@ export default function InspectionPage() {
       <ConfirmDialog
         open={bulkOpen}
         title={`ยืนยันห้อง ${room || 'ไม่ระบุสถานที่'}`}
-        message={`บันทึกผล "ปกติ" ให้ครุภัณฑ์ที่ยังไม่ได้ตรวจ ${nf(roomPending)} ชิ้นในห้องนี้? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
-        confirmLabel="ยืนยันปกติทั้งหมด"
+        message={`บันทึกผล "${STATUS[bulkStatus].label}" ให้ครุภัณฑ์ที่ยังไม่ได้ตรวจ ${nf(roomPending)} ชิ้นในห้องนี้? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
+        confirmLabel={`บันทึก "${STATUS[bulkStatus].label}" ทั้งหมด`}
         loading={bulking}
         onConfirm={handleBulk}
         onCancel={() => setBulkOpen(false)}

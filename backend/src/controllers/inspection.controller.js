@@ -246,8 +246,9 @@ exports.setCommittee = async (req, res) => {
   }
 };
 
-// POST /api/inspections/:id/bulk body: { room, status: "ok" }
-// "ที่เหลือในห้องนี้ปกติทั้งหมด" — กรรมการกดชิ้นที่ผิดปกติทีละชิ้นก่อน แล้วยืนยันที่เหลือทีเดียว
+// POST /api/inspections/:id/bulk body: { room, status }
+// บันทึกผลเดียวกันให้ทุกชิ้นที่ยังไม่ตรวจในห้อง เช่น "ปกติ" หลังกดชิ้นที่ผิดปกติไปแล้ว
+// หรือ "ไม่พบพัสดุ" เมื่อห้องถูกรื้อ/ย้ายออกทั้งห้อง
 // เปลี่ยนเฉพาะชิ้นที่ยังไม่ได้ตรวจ ชิ้นที่ตรวจแล้วไม่ถูกทับ
 exports.bulkRoom = async (req, res) => {
   try {
@@ -257,27 +258,27 @@ exports.bulkRoom = async (req, res) => {
     if (!isCommittee(inspection, req.user)) return fail(res, 403, "เฉพาะกรรมการที่ได้รับแต่งตั้งในรอบนี้");
     const { room, status = "ok" } = req.body || {};
     if (typeof room !== "string") return fail(res, 400, "ระบุห้อง");
-    if (status !== "ok") return fail(res, 400, "บันทึกทีละห้องได้เฉพาะผล \"ปกติ\" — ชิ้นที่ผิดปกติให้กดทีละชิ้น");
+    if (!INSPECT_RESULTS.includes(status)) return fail(res, 400, "ผลตรวจไม่ถูกต้อง");
 
     const items = await InspectionItem.find({ inspection: inspection._id, "snapshot.room": room, result: null });
     if (!items.length) return res.json({ success: true, updated: 0 });
 
     const now = new Date();
     const who = { checkedBy: req.user.userId, checkedByName: req.user.name || req.user.username, checkedAt: now, method: "committee" };
-    await InspectionItem.updateMany({ _id: { $in: items.map((i) => i._id) } }, { result: "ok", ...who });
+    await InspectionItem.updateMany({ _id: { $in: items.map((i) => i._id) } }, { result: status, ...who });
 
     // อัปเดตสถานะครุภัณฑ์ + บันทึกประวัติเฉพาะชิ้นที่สถานะเปลี่ยน
     const assetIds = items.map((i) => i.asset);
-    const changed = await Asset.find({ _id: { $in: assetIds }, status: { $ne: "ok" } }, { status: 1 }).lean();
-    await Asset.updateMany({ _id: { $in: assetIds } }, { status: "ok", lastInspectedAt: now });
+    const changed = await Asset.find({ _id: { $in: assetIds }, status: { $ne: status } }, { status: 1 }).lean();
+    await Asset.updateMany({ _id: { $in: assetIds } }, { status, lastInspectedAt: now });
     if (changed.length) {
       await AssetHistory.insertMany(changed.map((a) => ({
         asset: a._id, action: "inspect",
-        changes: [{ field: "status", oldValue: a.status, newValue: "ok" }],
+        changes: [{ field: "status", oldValue: a.status, newValue: status }],
         changedBy: req.user.userId, changedByName: who.checkedByName
       })));
     }
-    res.json({ success: true, updated: items.length });
+    res.json({ success: true, updated: items.length, status });
   } catch (error) {
     fail(res, 500, error.message);
   }
