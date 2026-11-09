@@ -6,10 +6,15 @@ const INSPECT_RESULTS = ["ok", "broken", "disposal", "unneeded", "missing"];
 
 const getOpenInspection = () => Inspection.findOne({ status: "open" }).sort({ createdAt: -1 });
 
+// กรรมการ = ผู้ที่ถูกแต่งตั้งในรอบนี้เท่านั้น — Admin ไม่ได้เป็นกรรมการอัตโนมัติ
+// ("คนซื้อกับคนตรวจต้องเป็นคนละคน" และกันเจ้าหน้าที่เผลอกดผลแทนกรรมการ)
 const isCommittee = (inspection, user) =>
-  user?.role === "admin" || inspection.committee.some((id) => String(id) === String(user?.userId));
+  inspection.committee.some((id) => String(id) === String(user?.userId));
 
-// ตรวจชิ้นนี้ได้ไหม: admin / กรรมการรอบนี้ / ผู้ถือครองที่ผูกบัญชีไว้ (self-check)
+// เห็นรายการทั้งหมดของรอบ: กรรมการ หรือ Admin (ดูความคืบหน้าอย่างเดียว)
+const canViewAll = (inspection, user) => user?.role === "admin" || isCommittee(inspection, user);
+
+// ตรวจชิ้นนี้ได้ไหม: กรรมการรอบนี้ / ผู้ถือครองที่ผูกบัญชีไว้ (self-check)
 const canInspectItem = (inspection, item, user) =>
   inspection.status === "open" &&
   (isCommittee(inspection, user) || (item?.holderUser && String(item.holderUser) === String(user?.userId)));
@@ -32,4 +37,4 @@ async function progressOf(inspectionId) {
   return out;
 }
 
-module.exports = { INSPECT_RESULTS, getOpenInspection, isCommittee, canInspectItem, progressOf };
+module.exports = { INSPECT_RESULTS, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf };

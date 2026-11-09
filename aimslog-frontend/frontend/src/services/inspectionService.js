@@ -39,3 +39,8 @@ export function appointCommittee(inspectionId, members) {
 export function listInspections() {
   return api.get('/inspections').then((res) => res.data)
 }
+
+// "ที่เหลือในห้องนี้ปกติทั้งหมด" (เฉพาะกรรมการ, เฉพาะชิ้นที่ยังไม่ตรวจ)
+export function bulkMarkRoom(inspectionId, room) {
+  return api.post(`/inspections/${inspectionId}/bulk`, { room, status: 'ok' }).then((res) => res.data)
+}

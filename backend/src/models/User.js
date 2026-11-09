@@ -20,6 +20,16 @@ const userSchema = new mongoose.Schema(
       trim: true
     },
 
+    // โปรไฟล์ (ตั้งค่าเองได้ในหน้าโปรไฟล์)
+    position: { type: String, trim: true, maxlength: 100 },
+    email: { type: String, trim: true, maxlength: 120 },
+    phone: { type: String, trim: true, maxlength: 30 },
+    bio: { type: String, trim: true, maxlength: 300 },
+    // รูปโปรไฟล์เป็น data URL ที่ย่อขนาดฝั่งหน้าเว็บแล้ว (ไม่ต้องมีที่เก็บไฟล์แยก)
+    avatar: { type: String, maxlength: 200000 },
+    // ปิดบัญชีแทนการลบ — ประวัติที่ผู้ใช้คนนี้เคยบันทึกยังอยู่ครบ
+    active: { type: Boolean, default: true },
+
     role: {
       type: String,
       enum: ["admin", "user"],

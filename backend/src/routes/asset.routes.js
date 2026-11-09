@@ -14,11 +14,13 @@ router.get("/import/template", admin, importer.template);
 router.post("/import/preview", admin, upload.single("file"), importer.preview);
 router.post("/import", admin, upload.single("file"), importer.commit);
 
+router.get("/trash", admin, asset.getTrash);
 router.get("/", asset.getAssets);
 router.post("/", admin, asset.createAsset);
 router.get("/:id", asset.getAsset);
 router.get("/:id/history", asset.getAssetHistory);
 router.put("/:id", admin, asset.updateAsset);
 router.delete("/:id", admin, asset.deleteAsset);
+router.post("/:id/restore", admin, asset.restoreAsset);
 
 module.exports = router;

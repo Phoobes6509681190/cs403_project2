@@ -298,3 +298,15 @@ export function Donut({ data, total }) {
     </div>
   )
 }
+
+export function Avatar({ user, size = 36, className = '' }) {
+  const initials = (user?.name || user?.username || '?').trim().slice(0, 2)
+  const style = { width: size, height: size, fontSize: Math.max(10, size / 3) }
+  return user?.avatar ? (
+    <img src={user.avatar} alt="" style={style} className={`rounded-full object-cover shrink-0 ${className}`} />
+  ) : (
+    <span style={style} className={`rounded-full bg-brandsoft text-brandink grid place-items-center font-bold shrink-0 ${className}`}>
+      {initials}
+    </span>
+  )
+}

@@ -81,6 +81,8 @@ export function AuthProvider({ children }) {
     isAuthenticated: status === 'authenticated',
     role: user?.role ?? null,
     sessionWarning,
+    // ใช้หลังแก้โปรไฟล์ ให้ชื่อ/รูปที่เมนูอัปเดตทันที
+    updateUser: (u) => setUser((prev) => ({ ...prev, ...u })),
     login,
     logout,
   }

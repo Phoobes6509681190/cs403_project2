@@ -13,7 +13,11 @@ const cookieBase = () => ({
   maxAge: SESSION_HOURS * 60 * 60 * 1000
 });
 
-const publicUser = (u) => ({ id: u._id, username: u.username, name: u.name, role: u.role });
+const publicUser = (u) => ({
+  id: u._id, username: u.username, name: u.name, role: u.role,
+  position: u.position || "", email: u.email || "", phone: u.phone || "", bio: u.bio || "", avatar: u.avatar || ""
+});
+exports.publicUser = publicUser;
 
 exports.login = async (req, res) => {
   try {
@@ -23,7 +27,7 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne({ username: String(username).trim() });
-    const ok = user && (await bcrypt.compare(String(password), user.password));
+    const ok = user && user.active !== false && (await bcrypt.compare(String(password), user.password));
     if (!ok) {
       return res.status(401).json({ success: false, message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
     }
@@ -54,7 +58,7 @@ exports.logout = (req, res) => {
 exports.me = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-    if (!user) return res.status(401).json({ success: false, message: "ไม่พบผู้ใช้" });
+    if (!user || user.active === false) return res.status(401).json({ success: false, message: "ไม่พบผู้ใช้" });
     res.json({ success: true, user: publicUser(user) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -83,5 +87,31 @@ exports.changePassword = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/auth/profile — แก้โปรไฟล์ของตัวเอง (ชื่อ ตำแหน่ง ติดต่อ แนะนำตัว รูป)
+exports.updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, message: "ไม่พบผู้ใช้" });
+    const b = req.body || {};
+    for (const f of ["name", "position", "email", "phone", "bio"]) {
+      if (b[f] !== undefined) user[f] = String(b[f]).trim();
+    }
+    if (!user.name) return res.status(400).json({ success: false, message: "ชื่อต้องไม่ว่าง" });
+    if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) {
+      return res.status(400).json({ success: false, message: "รูปแบบอีเมลไม่ถูกต้อง" });
+    }
+    if (b.avatar !== undefined) {
+      if (b.avatar && !/^data:image\/(png|jpeg|webp);base64,/.test(b.avatar)) {
+        return res.status(400).json({ success: false, message: "รูปโปรไฟล์ต้องเป็น PNG / JPEG / WebP" });
+      }
+      user.avatar = b.avatar || "";
+    }
+    await user.save();
+    res.json({ success: true, user: publicUser(user) });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 };

@@ -6,5 +6,7 @@ export const TITLES = {
   inspection: 'ตรวจนับครุภัณฑ์',
   committee: 'แต่งตั้งกรรมการตรวจนับ',
   reports: 'รายงาน',
-  account: 'บัญชีผู้ใช้',
+  profile: 'โปรไฟล์',
+  users: 'จัดการผู้ใช้',
+  trash: 'ถังขยะและสำรองข้อมูล',
 }

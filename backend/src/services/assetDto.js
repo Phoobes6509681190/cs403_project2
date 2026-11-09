@@ -58,7 +58,8 @@ const FIELD_LABELS = { status: "สถานะ", location: "สถานที�
 function historySummary(h) {
   if (h.action === "create") return "เพิ่มครุภัณฑ์เข้าระบบ";
   if (h.action === "import") return "นำเข้าจากไฟล์ Excel";
-  if (h.action === "delete") return "ลบครุภัณฑ์";
+  if (h.action === "delete") return "ลบครุภัณฑ์ (ย้ายไปถังขยะ)";
+  if (h.action === "restore") return "กู้คืนจากถังขยะ";
   return (h.changes || [])
     .map((c) => {
       const fmt = (v) => (c.field === "status" ? STATUSES[v]?.label || v : v) || "—";

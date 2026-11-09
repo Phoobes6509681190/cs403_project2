@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Logo } from '../components/icon'
+import { DeptLogo } from '../components/icon'
 import { Card, Btn, Field } from '../components/UI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
     <main className="min-h-screen grid place-items-center px-4 py-10">
       <Card className="w-full max-w-sm p-7">
         <div className="flex flex-col items-center text-center">
-          <Logo className="w-12 h-12" />
+          <DeptLogo className="h-14" />
           <h1 className="mt-3 text-xl font-bold">AIMSlog</h1>
           <p className="text-[12px] text-muted">ระบบจัดการครุภัณฑ์ สาขาวิทยาการคอมพิวเตอร์</p>
         </div>

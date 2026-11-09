@@ -82,3 +82,12 @@ test("เปลี่ยนรหัสผ่าน: ต้อง login แล�
   const short = await fetch(`${base}/auth/password`, { method: "PUT", headers: h, body: JSON.stringify({ currentPassword: "a", newPassword: "b" }) });
   assert.strictEqual(short.status, 400);
 });
+
+test("ถังขยะ / กู้คืน / สำรองข้อมูล / จัดการผู้ใช้ = admin เท่านั้น", async () => {
+  const h = { Authorization: `Bearer ${tokenFor("user")}`, "Content-Type": "application/json" };
+  assert.strictEqual((await fetch(`${base}/assets/trash`, { headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/assets/64b000000000000000000003/restore`, { method: "POST", headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/backup`, { headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/users/64b000000000000000000003`, { method: "PUT", headers: h, body: "{}" })).status, 403);
+  assert.strictEqual((await fetch(`${base}/auth/profile`, { method: "PUT" })).status, 401);
+});

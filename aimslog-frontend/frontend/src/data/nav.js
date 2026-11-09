@@ -8,4 +8,6 @@ export const NAV = [
   { key: 'inspection', label: 'ตรวจนับ', icon: 'check', path: '/inspection', roles: ['admin', 'user'] },
   { key: 'committee', label: 'แต่งตั้งกรรมการ', icon: 'users', path: '/inspection/committee', roles: ['admin'] },
   { key: 'reports', label: 'รายงาน', icon: 'file', path: '/reports', roles: ['admin', 'user'] },
+  { key: 'users', label: 'จัดการผู้ใช้', icon: 'shield', path: '/users', roles: ['admin'] },
+  { key: 'trash', label: 'ถังขยะ / สำรองข้อมูล', icon: 'trash', path: '/trash', roles: ['admin'] },
 ]

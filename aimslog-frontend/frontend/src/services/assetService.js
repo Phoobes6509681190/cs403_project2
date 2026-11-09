@@ -57,3 +57,23 @@ export async function downloadImportTemplate() {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// ถังขยะ: รายการที่ถูกลบ (soft delete) และการกู้คืน
+export function getTrash() {
+  return api.get('/assets/trash').then((res) => res.data)
+}
+
+export function restoreAsset(id) {
+  return api.post(`/assets/${id}/restore`).then((res) => res.data)
+}
+
+// สำรองข้อมูลทั้งระบบเป็นไฟล์ Excel
+export async function downloadBackup() {
+  const res = await api.get('/backup', { responseType: 'blob', timeout: 60000 })
+  const url = URL.createObjectURL(res.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `aimslog-backup-${new Date().toISOString().slice(0, 10)}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
