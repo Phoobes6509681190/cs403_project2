@@ -55,5 +55,17 @@ test("สถานะที่ยังไม่รู้จัก (รอ Admin
 test("สถานที่จาก อาคาร/ชั้น/ห้อง เมื่อไม่มีช่องระบุสถานที่", () => {
   const assets = [asset("a1", "X-1", "คอม", { room: "บร.2 ชั้น 1 ห้อง 107" })];
   const rows = [row(2, "X-1", "คอม", { location: { building: "บร.2", floor: "1", room: "107" } })];
-  assert.strictEqual(classify(rows, assets, resolve).same.length, 1);
+  // ช่องระบุสถานที่ตรงกัน — ต่างเฉพาะช่องย่อยที่ในระบบยังว่าง (จะถูกเติมจากไฟล์)
+  const c = classify(rows, assets, resolve);
+  assert.deepStrictEqual(c.changed[0].diffs.map((d) => d.field), ["building", "floor", "room"]);
+});
+
+test("แก้แค่ช่องห้อง (ช่องระบุสถานที่ยังเหมือนเดิม) ต้องเห็นว่าต่าง", () => {
+  const assets = [{ _id: "a1", assetCode: "X-1", name: "คอม", status: "ok",
+    location: { building: "บร.2", floor: "1", room: "110", label: "บร.2 ชั้น 1 ห้อง 107" } }];
+  const rows = [row(2, "X-1", "คอม", { location: { building: "บร.2", floor: "1", room: "107", label: "บร.2 ชั้น 1 ห้อง 107" } })];
+  const c = classify(rows, assets, resolve);
+  assert.strictEqual(c.changed.length, 1);
+  assert.deepStrictEqual(c.changed[0].diffs.map((d) => d.field), ["room"]);
+  assert.strictEqual(c.changed[0].diffs[0].currentLabel, "110");
 });

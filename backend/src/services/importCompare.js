@@ -4,7 +4,11 @@ const { STATUSES } = require("../constants/status");
 // ฟิลด์ที่เทียบ — เลือกเฉพาะที่เปลี่ยนได้จริงในชีวิตของครุภัณฑ์
 const COMPARE_FIELDS = [
   { key: "status", label: "สถานะ" },
-  { key: "location", label: "สถานที่" },
+  // สถานที่เทียบทีละช่อง (ตึก/ชั้น/ห้อง) และช่อง "ระบุสถานที่ใช้งาน" — แก้ช่องใดช่องหนึ่งก็ต้องเห็นว่าต่าง
+  { key: "building", label: "ตึก/อาคาร" },
+  { key: "floor", label: "ชั้น" },
+  { key: "room", label: "ห้อง" },
+  { key: "location", label: "สถานที่ใช้งาน" },
   { key: "holderName", label: "ผู้ถือครอง" },
   { key: "brand", label: "ยี่ห้อ" }
 ];
@@ -18,12 +22,18 @@ function rowLocationLabel(loc = {}) {
   return norm([loc.building, loc.floor && `ชั้น ${loc.floor}`, loc.room && `ห้อง ${loc.room}`].filter(Boolean).join(" "));
 }
 
-const currentValue = (asset, field) =>
-  field === "location" ? norm(asset.location?.label) : norm(asset[field]);
+const LOCATION_PARTS = ["building", "floor", "room"];
+
+function currentValue(asset, field) {
+  if (field === "location") return norm(asset.location?.label);
+  if (LOCATION_PARTS.includes(field)) return norm(asset.location?.[field]);
+  return norm(asset[field]);
+}
 
 function incomingValue(row, field, statusKey) {
   if (field === "status") return statusKey || "";
   if (field === "location") return rowLocationLabel(row.data.location);
+  if (LOCATION_PARTS.includes(field)) return norm(row.data.location?.[field]);
   return norm(row.data[field]);
 }
 
@@ -85,4 +95,4 @@ function classify(rows, assets, resolveStatus) {
   return out;
 }
 
-module.exports = { COMPARE_FIELDS, classify, diffRow, rowLocationLabel, key };
+module.exports = { COMPARE_FIELDS, LOCATION_PARTS, classify, diffRow, rowLocationLabel, key };

@@ -14,6 +14,10 @@ import { nf } from '../utils/format'
 
 const PER_PAGE = 10
 
+// ประกอบ "ระบุ สถานที่ใช้งาน" จาก ตึก/ชั้น/ห้อง (รูปแบบเดียวกับไฟล์ Excel ของคณะ)
+const composeLocation = (f) =>
+  [f.building, f.floor && `ชั้น ${f.floor}`, f.roomNo && `ห้อง ${f.roomNo}`].filter(Boolean).join(' ')
+
 const emptyForm = {
   code: '', name: '', model: '', brand: '', cat: '', building: '', floor: '', roomNo: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
 }
@@ -72,6 +76,15 @@ export default function AssetListPage() {
   useEffect(() => {
     setPage(1)
   }, [debouncedQ, status, room, budget])
+
+  // แก้ ตึก/ชั้น/ห้อง แล้ว "ระบุสถานที่ใช้งาน" เปลี่ยนตามให้ — ถ้าช่องนั้นยังเป็นค่าที่ประกอบอัตโนมัติ (หรือว่าง)
+  // ถ้าผู้ใช้พิมพ์ข้อความเองไว้ (เช่น "ห้องพักอาจารย์") จะไม่ทับ
+  const setLocPart = (key, value) =>
+    setForm((f) => {
+      const next = { ...f, [key]: value }
+      const wasAuto = !f.room || f.room === composeLocation(f)
+      return wasAuto ? { ...next, room: composeLocation(next) } : next
+    })
 
   const openCreate = () => {
     setEditing(null)
@@ -284,10 +297,10 @@ export default function AssetListPage() {
           <Field label="รุ่น" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
           <Field label="ยี่ห้อ" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
           <Field label="ประเภท" value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })} />
-          <Field label="ตึก/อาคาร" placeholder="เช่น บร.2" value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} />
+          <Field label="ตึก/อาคาร" placeholder="เช่น บร.2" value={form.building} onChange={(e) => setLocPart('building', e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="ชั้น" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} />
-            <Field label="ห้อง" value={form.roomNo} onChange={(e) => setForm({ ...form, roomNo: e.target.value })} />
+            <Field label="ชั้น" value={form.floor} onChange={(e) => setLocPart('floor', e.target.value)} />
+            <Field label="ห้อง" value={form.roomNo} onChange={(e) => setLocPart('roomNo', e.target.value)} />
           </div>
           <Field label="ระบุ สถานที่ใช้งาน" placeholder="เว้นว่าง = ใช้ ตึก/ชั้น/ห้อง" className="col-span-2" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
           <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />

@@ -4,7 +4,7 @@ const AssetHistory = require("../models/AssetHistory");
 const { STATUS_KEYS, statusFromLabel } = require("../constants/status");
 const { parseWorkbook } = require("../services/import.service");
 const { getBudgetMap } = require("../services/budget.service");
-const { classify, rowLocationLabel } = require("../services/importCompare");
+const { classify, rowLocationLabel, LOCATION_PARTS } = require("../services/importCompare");
 
 const fail = (res, code, message) => res.status(code).json({ success: false, message });
 const PREVIEW_LIMIT = 300;
@@ -194,15 +194,23 @@ exports.commit = async (req, res) => {
       const asset = await Asset.findById(x.asset._id);
       if (!asset || asset.isDeleted) continue;
       for (const d of apply) {
-        if (d.field === "location") asset.location = { ...x.row.data.location, label: rowLocationLabel(x.row.data.location) };
-        else asset[d.field] = d.incoming;
+        // ช่องสถานที่ใดช่องหนึ่งต่าง -> ใช้สถานที่ทั้งชุดจากไฟล์ให้ตรงกันทุกช่อง
+        if (d.field === "location" || LOCATION_PARTS.includes(d.field)) {
+          const loc = x.row.data.location || {};
+          asset.location = {
+            building: loc.building || asset.location?.building,
+            floor: loc.floor || asset.location?.floor,
+            room: loc.room || asset.location?.room,
+            label: rowLocationLabel(loc) || asset.location?.label
+          };
+        } else asset[d.field] = d.incoming;
       }
       await asset.save();
       await AssetHistory.create({
         asset: asset._id,
         action: "import",
         changes: apply.map((d) => ({
-          field: d.field === "location" ? "location" : d.field,
+          field: d.field,
           oldValue: d.current,
           newValue: d.incoming
         })),

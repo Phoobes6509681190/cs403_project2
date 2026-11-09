@@ -242,9 +242,9 @@ export default function AssetImportPage() {
                     return (
                       <tr key={r.row} className={`border-b border-line last:border-0 ${r.kind === 'dup' || r.kind === 'invalid' ? 'opacity-50' : ''}`}>
                         <td className="py-2 pr-3 text-faint">{r.row}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">{r.building}</td>
-                        <td className="py-2 pr-3">{r.floor}</td>
-                        <td className="py-2 pr-3">{r.room}</td>
+                        {cell('building', r.building, 'whitespace-nowrap')}
+                        {cell('floor', r.floor)}
+                        {cell('room', r.room)}
                         {cell('location', r.locationLabel, 'whitespace-nowrap')}
                         <td className={`py-2 pr-3 ${r.was.status !== undefined ? 'bg-warnsoft' : ''}`}>
                           {statusKey ? <StatusPill status={statusKey} /> : <span className="text-warn">? {r.statusLabel}</span>}
