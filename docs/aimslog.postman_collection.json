@@ -1,0 +1,1643 @@
+{
+  "info": {
+    "name": "AIMSlog API",
+    "description": "ระบบจัดการและตรวจนับครุภัณฑ์ สาขาวิทยาการคอมพิวเตอร์ มธ.\n\n1) ตั้งค่า Variables: baseUrl, username, password\n2) รัน Auth → Login ก่อน (เก็บ JWT ใน {{token}} อัตโนมัติ)\n3) รันทั้ง collection ได้ — โฟลเดอร์สุดท้าย \"⚠️ อันตราย\" ให้ยกเลิกการเลือกก่อนรันกับข้อมูลจริง\n\nรายละเอียด: docs/API.md",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://aimslog-api.onrender.com/api"
+    },
+    {
+      "key": "username",
+      "value": "admin"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "meId",
+      "value": ""
+    },
+    {
+      "key": "assetId",
+      "value": ""
+    },
+    {
+      "key": "inspectionId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "room",
+      "value": "บร.2 ชั้น 1 ห้อง 107"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. ระบบ",
+      "description": "",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"database connected\", () => pm.expect(pm.response.json().database).to.eql(\"connected\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Render แบบฟรีอาจใช้เวลา 30–60 วินาทีตอนตื่น"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Auth",
+      "description": "",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "const t = pm.cookies.get(\"token\"); if (t) pm.collectionVariables.set(\"token\", t);",
+                  "if (pm.response.code < 300) { const j = pm.response.json(); if (j.user && j.user.id) pm.collectionVariables.set(\"meId\", j.user && j.user.id); }",
+                  "pm.test(\"ได้ JWT\", () => pm.expect(pm.collectionVariables.get(\"token\")).to.not.be.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "เก็บ JWT จาก cookie \"token\" ไว้ใน {{token}} ให้คำขออื่นใช้แบบ Bearer"
+          }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"มี user\", () => pm.expect(pm.response.json().user).to.have.property(\"role\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Update profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": \"เจ้าหน้าที่พัสดุ\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Change password (ตัวอย่าง — คาด 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.expect(pm.response.code).to.be.oneOf([400]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"wrong\",\n  \"newPassword\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "password"
+              ]
+            },
+            "description": "ตัวอย่าง validation: รหัสใหม่สั้นกว่า 8 ตัว → 400 (ไม่เปลี่ยนรหัสจริง)"
+          }
+        },
+        {
+          "name": "Without token (คาด 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 401\", () => pm.expect(pm.response.code).to.be.oneOf([200, 401]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Postman อาจส่ง cookie ที่เก็บไว้ไปด้วย ถ้าล้าง cookie แล้วจะได้ 401"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. ครุภัณฑ์",
+      "description": "",
+      "item": [
+        {
+          "name": "List assets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"มี items และ total\", () => { const j = pm.response.json(); pm.expect(j.items).to.be.an(\"array\"); pm.expect(j).to.have.property(\"total\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets?page=1&perPage=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "20"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "ok",
+                  "disabled": true
+                },
+                {
+                  "key": "room",
+                  "value": "{{room}}",
+                  "disabled": true
+                },
+                {
+                  "key": "budget",
+                  "value": "งบพิเศษ",
+                  "disabled": true
+                },
+                {
+                  "key": "holderUser",
+                  "value": "me",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Search partial match",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets?q=57-1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "57-1"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Create asset",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code < 300) { const j = pm.response.json(); if (j.id) pm.collectionVariables.set(\"assetId\", j.id); }",
+                  "pm.test(\"อ่านงบจากเลขครุภัณฑ์\", () => pm.expect(pm.response.json().budget).to.eql(\"งบพิเศษ\"));",
+                  "pm.test(\"ประกอบสถานที่ให้\", () => pm.expect(pm.response.json().room).to.eql(\"บร.2 ชั้น 1 ห้อง 107\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"วทท-8พ-69-1/1\",\n  \"name\": \"ครุภัณฑ์ทดสอบจาก Postman\",\n  \"brand\": \"TEST\",\n  \"location\": {\n    \"building\": \"บร.2\",\n    \"floor\": \"1\",\n    \"room\": \"107\",\n    \"label\": \"\"\n  },\n  \"owner\": \"ผู้ทดสอบ\",\n  \"status\": \"ok\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get asset",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"มีข้อมูลรอบตรวจ (หรือ null)\", () => pm.expect(pm.response.json()).to.have.property(\"inspection\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Update asset (ย้ายห้อง)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": {\n    \"building\": \"บร.2\",\n    \"floor\": \"1\",\n    \"room\": \"110\",\n    \"label\": \"\"\n  },\n  \"status\": \"broken\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"บันทึกการย้ายห้อง\", () => pm.expect(pm.response.json().items.some(h => h.action === \"update\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}",
+                "history"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get asset — id ผิด (คาด 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.expect(pm.response.code).to.be.oneOf([404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/not-an-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "not-an-id"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Budgets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"มีงบ พ\", () => pm.expect(pm.response.json().items.map(b => b.abbr)).to.include(\"พ\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/budgets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "budgets"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. นำเข้า Excel",
+      "description": "",
+      "item": [
+        {
+          "name": "Download template",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/import/template",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "import",
+                "template"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Import preview",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 400\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "เลือกไฟล์ เช่น backend/samples/sample-import.xlsx"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assets/import/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "import",
+                "preview"
+              ]
+            },
+            "description": "ต้องเลือกไฟล์ในแท็บ Body ก่อน (ไม่เลือก = 400 \"กรุณาแนบไฟล์ Excel\") — ไม่บันทึกข้อมูล"
+          }
+        },
+        {
+          "name": "Import commit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 400\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "statusMapping",
+                  "value": "{}",
+                  "type": "text"
+                },
+                {
+                  "key": "budgetMapping",
+                  "value": "{}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assets/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "import"
+              ]
+            },
+            "description": "⚠️ บันทึกจริง: เพิ่มรายการใหม่และอัปเดตรายการที่ต่างให้ตรงกับไฟล์"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. ผู้ใช้",
+      "description": "",
+      "item": [
+        {
+          "name": "List users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?active=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Create user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code < 300) { const j = pm.response.json(); if (j.id) pm.collectionVariables.set(\"userId\", j.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"postman{{$timestamp}}\",\n  \"name\": \"ผู้ใช้ทดสอบ Postman\",\n  \"password\": \"Test12345\",\n  \"role\": \"user\",\n  \"position\": \"ทดสอบ\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Reset password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"Reset12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "password"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Deactivate user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"ปิดบัญชีแล้ว\", () => pm.expect(pm.response.json().active).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Edit own role (คาด 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.expect(pm.response.code).to.be.oneOf([400]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"user\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{meId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{meId}}"
+              ]
+            },
+            "description": "กันล็อกตัวเองออกจากระบบ"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. ตรวจนับ",
+      "description": "",
+      "item": [
+        {
+          "name": "Active round",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "if (pm.response.json() && pm.response.json().id) pm.collectionVariables.set(\"inspectionId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inspections/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "active"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Open round (แต่งตั้งตัวเองเป็นกรรมการ)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201 / 409\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "if (pm.response.code < 300) { const j = pm.response.json(); if (j.id) pm.collectionVariables.set(\"inspectionId\", j.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"budgetYear\": 2569,\n  \"committee\": [\n    {\n      \"userId\": \"{{meId}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inspections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections"
+              ]
+            },
+            "description": "409 = มีรอบเปิดอยู่แล้ว (ใช้รอบนั้นต่อ)"
+          }
+        },
+        {
+          "name": "Set committee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"members\": [\n    \"{{meId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}/committee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}",
+                "committee"
+              ]
+            },
+            "description": "แทนที่รายชื่อกรรมการของรอบที่ยังเปิด (409 = รอบปิดแล้ว)"
+          }
+        },
+        {
+          "name": "Round detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Submit item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 403 / 404\", () => pm.expect(pm.response.code).to.be.oneOf([200, 403, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assetId\": \"{{assetId}}\",\n  \"status\": \"ok\",\n  \"note\": \"ตรวจจาก Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}",
+                "items"
+              ]
+            },
+            "description": "403 = ไม่ใช่กรรมการรอบนี้ (Admin ไม่ได้เป็นกรรมการอัตโนมัติ) · 404 = ครุภัณฑ์ถูกเพิ่มหลังเปิดรอบ"
+          }
+        },
+        {
+          "name": "Submit item — ผลไม่ถูกต้อง (คาด 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400 / 403 / 409\", () => pm.expect(pm.response.code).to.be.oneOf([400, 403, 409]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assetId\": \"{{assetId}}\",\n  \"status\": \"transferred\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}",
+                "items"
+              ]
+            },
+            "description": "\"ตัดโอน\" ไม่ใช่ผลจากการตรวจนับ"
+          }
+        },
+        {
+          "name": "Bulk room",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 403\", () => pm.expect(pm.response.code).to.be.oneOf([200, 403]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room\": \"{{room}}\",\n  \"status\": \"ok\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}",
+                "bulk"
+              ]
+            },
+            "description": "บันทึกผลให้ทุกชิ้นที่ยังไม่ตรวจในห้อง (เฉพาะกรรมการ)"
+          }
+        },
+        {
+          "name": "Progress",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"มี total/checked\", () => { const j = pm.response.json(); pm.expect(j).to.have.property(\"total\"); pm.expect(j).to.have.property(\"checked\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}/progress",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}",
+                "progress"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "All rounds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inspections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. รายงาน",
+      "description": "",
+      "item": [
+        {
+          "name": "Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"ยอดรวมไม่นับตัดโอน\", () => { const j = pm.response.json(); pm.expect(j.total).to.eql(j.totals.total); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "summary"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/detail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "detail"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Backup (Excel)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/backup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "backup"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. ถังขยะ (ล้างข้อมูลทดสอบ)",
+      "description": "ลบเฉพาะครุภัณฑ์ทดสอบที่สร้างในโฟลเดอร์ 3",
+      "item": [
+        {
+          "name": "Delete test asset (ย้ายไปถังขยะ)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Trash list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"อยู่ในถังขยะ\", () => pm.expect(pm.response.json().items.map(a => a.id)).to.include(pm.collectionVariables.get(\"assetId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/trash",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "trash"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Restore",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}",
+                "restore"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Delete again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Purge test asset (ลบถาวรเฉพาะชิ้นทดสอบ)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/{{assetId}}/permanent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "{{assetId}}",
+                "permanent"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. ⚠️ อันตราย — ยกเลิกการเลือกก่อนรันกับข้อมูลจริง",
+      "description": "คำขอที่เปลี่ยนข้อมูลจริงแบบย้อนกลับไม่ได้",
+      "item": [
+        {
+          "name": "Close round",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 / 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inspections/{{inspectionId}}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inspections",
+                "{{inspectionId}}",
+                "close"
+              ]
+            },
+            "description": "⚠️ ปิดรอบตรวจนับจริง — กรรมการบันทึกผลต่อไม่ได้"
+          }
+        },
+        {
+          "name": "Empty trash",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assets/trash",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assets",
+                "trash"
+              ]
+            },
+            "description": "⚠️ ลบถาวรทุกรายการในถังขยะ กู้คืนไม่ได้"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. ออกจากระบบ",
+      "description": "",
+      "item": [
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.collectionVariables.set(\"token\", \"\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "ลบ cookie และล้างตัวแปร token"
+          }
+        }
+      ]
+    }
+  ]
+}
