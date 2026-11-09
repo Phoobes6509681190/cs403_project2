@@ -223,3 +223,36 @@ exports.restoreAsset = async (req, res) => {
     fail(res, 500, error.message);
   }
 };
+
+// ลบถาวรจากถังขยะ (admin) — ลบได้เฉพาะรายการที่อยู่ในถังขยะแล้ว และกู้คืนไม่ได้อีก
+// ผลตรวจนับย้อนหลังยังอยู่ (เก็บสำเนาข้อมูลไว้ใน InspectionItem) รายงานปีเก่าจึงไม่เปลี่ยน
+async function purge(filter) {
+  const assets = await Asset.find({ ...filter, isDeleted: true }, { _id: 1 }).lean();
+  const ids = assets.map((a) => a._id);
+  if (ids.length) {
+    await AssetHistory.deleteMany({ asset: { $in: ids } });
+    await Asset.deleteMany({ _id: { $in: ids } });
+  }
+  return ids.length;
+}
+
+// DELETE /api/assets/:id/permanent
+exports.purgeAsset = async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
+    const n = await purge({ _id: req.params.id });
+    if (!n) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ (ต้องย้ายไปถังขยะก่อนจึงลบถาวรได้)");
+    res.json({ success: true, deleted: n });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
+// DELETE /api/assets/trash — ล้างถังขยะทั้งหมด
+exports.emptyTrash = async (req, res) => {
+  try {
+    res.json({ success: true, deleted: await purge({}) });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};

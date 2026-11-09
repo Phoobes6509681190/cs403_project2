@@ -77,3 +77,12 @@ export async function downloadBackup() {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// ลบถาวร (กู้คืนไม่ได้) — เฉพาะรายการที่อยู่ในถังขยะ
+export function purgeAsset(id) {
+  return api.delete(`/assets/${id}/permanent`).then((res) => res.data)
+}
+
+export function emptyTrash() {
+  return api.delete('/assets/trash').then((res) => res.data)
+}

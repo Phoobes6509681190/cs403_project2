@@ -112,3 +112,16 @@ body {
   body { background: #ffffff !important; }
   @page { size: A4; margin: 12mm; }
 }
+
+/* โลโก้สาขา: ดำในธีมสว่าง ขาวในธีมมืด (ทำตามกติกาธีมเดียวกับตัวแปรสีด้านบน) */
+.logo-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .logo-light { display: none; }
+  :root:not([data-theme='light']) .logo-dark { display: inline; }
+}
+:root[data-theme='dark'] .logo-light { display: none; }
+:root[data-theme='dark'] .logo-dark { display: inline; }
+@media print {
+  .logo-light { display: inline !important; }
+  .logo-dark { display: none !important; }
+}

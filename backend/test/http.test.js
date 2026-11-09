@@ -91,3 +91,9 @@ test("ถังขยะ / กู้คืน / สำรองข้อมู�
   assert.strictEqual((await fetch(`${base}/users/64b000000000000000000003`, { method: "PUT", headers: h, body: "{}" })).status, 403);
   assert.strictEqual((await fetch(`${base}/auth/profile`, { method: "PUT" })).status, 401);
 });
+
+test("ลบถาวร / ล้างถังขยะ = admin เท่านั้น", async () => {
+  const h = { Authorization: `Bearer ${tokenFor("user")}` };
+  assert.strictEqual((await fetch(`${base}/assets/trash`, { method: "DELETE", headers: h })).status, 403);
+  assert.strictEqual((await fetch(`${base}/assets/64b000000000000000000003/permanent`, { method: "DELETE", headers: h })).status, 403);
+});

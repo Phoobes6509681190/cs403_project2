@@ -17,6 +17,7 @@ export default function AssetDetailPage() {
   const [history, setHistory] = useState([])
   const [state, setState] = useState('loading')
   const [saving, setSaving] = useState(false)
+  const [editingResult, setEditingResult] = useState(false)
   const toast = useToast()
 
   const inspect = async (status) => {
@@ -24,6 +25,7 @@ export default function AssetDetailPage() {
     try {
       await submitInspectionItem(asset.inspection.id, asset.id, status)
       toast.success(`บันทึกผลตรวจ: ${STATUS[status].label}`)
+      setEditingResult(false)
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'บันทึกผลตรวจไม่สำเร็จ')
@@ -92,7 +94,19 @@ export default function AssetDetailPage() {
               : 'ยังไม่ได้ตรวจในรอบนี้'}
           </p>
           {asset.inspection.canInspect ? (
-            <InspectButtons disabled={saving} current={asset.inspection.result} onPick={inspect} />
+            asset.inspection.checked && !editingResult ? (
+              <div className="flex items-center gap-3">
+                <StatusPill status={asset.inspection.result} />
+                <button onClick={() => setEditingResult(true)} className="text-[12px] text-brand hover:underline">แก้ไขผล</button>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <InspectButtons disabled={saving} current={asset.inspection.result} onPick={inspect} />
+                {editingResult && (
+                  <button onClick={() => setEditingResult(false)} className="text-[12px] text-muted hover:underline">ยกเลิกการแก้ไข</button>
+                )}
+              </div>
+            )
           ) : (
             <p className="text-[12px] text-faint">คุณไม่ได้เป็นกรรมการหรือผู้ถือครองของรายการนี้</p>
           )}
