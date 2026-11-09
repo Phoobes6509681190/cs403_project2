@@ -53,7 +53,7 @@ function fromAssetInput(body = {}) {
   return out;
 }
 
-const FIELD_LABELS = { status: "สถานะ", location: "สถานที่", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ" };
+const FIELD_LABELS = { status: "สถานะ", location: "สถานที่", building: "ตึก/อาคาร", floor: "ชั้น", room: "ห้อง", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ" };
 
 function historySummary(h) {
   if (h.action === "create") return "เพิ่มครุภัณฑ์เข้าระบบ";
