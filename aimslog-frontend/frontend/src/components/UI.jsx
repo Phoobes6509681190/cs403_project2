@@ -60,7 +60,7 @@ export function Field({ label, required, hint, error, className = '', ...rest })
         {required && <span className="text-bad"> *</span>}
       </span>
       <input
-        className={`mt-1.5 w-full rounded-xl border bg-surface px-3 py-2.5 text-ink placeholder:text-faint focus:border-brand ${
+        className={`mt-1.5 w-full rounded-xl border bg-surface px-3 py-2.5 text-ink placeholder:text-faint focus:border-brand read-only:bg-surface2 read-only:text-muted ${
           error ? 'border-bad' : 'border-line'
         }`}
         {...rest}

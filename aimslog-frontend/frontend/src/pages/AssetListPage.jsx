@@ -77,13 +77,13 @@ export default function AssetListPage() {
     setPage(1)
   }, [debouncedQ, status, room, budget])
 
-  // แก้ ตึก/ชั้น/ห้อง แล้ว "ระบุสถานที่ใช้งาน" เปลี่ยนตามให้ — ถ้าช่องนั้นยังเป็นค่าที่ประกอบอัตโนมัติ (หรือว่าง)
-  // ถ้าผู้ใช้พิมพ์ข้อความเองไว้ (เช่น "ห้องพักอาจารย์") จะไม่ทับ
+  // มี ตึก/ชั้น/ห้อง อย่างน้อยหนึ่งช่อง -> "ระบุสถานที่ใช้งาน" สร้างจาก 3 ช่องนี้เสมอ (สองค่าไม่มีทางไม่ตรงกัน)
+  // ไม่มีเลยสักช่อง -> พิมพ์เองได้ เช่น "ห้องพักอาจารย์"
+  const hasParts = (f) => !!(f.building || f.floor || f.roomNo)
   const setLocPart = (key, value) =>
     setForm((f) => {
       const next = { ...f, [key]: value }
-      const wasAuto = !f.room || f.room === composeLocation(f)
-      return wasAuto ? { ...next, room: composeLocation(next) } : next
+      return hasParts(next) ? { ...next, room: composeLocation(next) } : next
     })
 
   const openCreate = () => {
@@ -95,12 +95,14 @@ export default function AssetListPage() {
   const openEdit = (asset) => {
     setEditing(asset)
     // เอาเฉพาะฟิลด์ในฟอร์ม (ไม่ส่ง location/codeParts เดิมกลับไปทับค่าที่แก้)
-    setForm({
+    const f = {
       ...Object.fromEntries(Object.keys(emptyForm).map((k) => [k, asset[k] ?? ''])),
       building: asset.location?.building || '',
       floor: asset.location?.floor || '',
       roomNo: asset.location?.room || '',
-    })
+    }
+    // ข้อมูลเก่าที่สองช่องไม่ตรงกัน จะถูกปรับให้ตรงเมื่อกดบันทึก
+    setForm(hasParts(f) ? { ...f, room: composeLocation(f) } : f)
     setFormOpen(true)
   }
 
@@ -302,7 +304,15 @@ export default function AssetListPage() {
             <Field label="ชั้น" value={form.floor} onChange={(e) => setLocPart('floor', e.target.value)} />
             <Field label="ห้อง" value={form.roomNo} onChange={(e) => setLocPart('roomNo', e.target.value)} />
           </div>
-          <Field label="ระบุ สถานที่ใช้งาน" placeholder="เว้นว่าง = ใช้ ตึก/ชั้น/ห้อง" className="col-span-2" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
+          <Field
+            label="ระบุ สถานที่ใช้งาน"
+            className="col-span-2"
+            value={form.room}
+            readOnly={hasParts(form)}
+            placeholder="เช่น ห้องพักอาจารย์"
+            hint={hasParts(form) ? 'สร้างจาก ตึก/ชั้น/ห้อง ให้อัตโนมัติ — ถ้าต้องการพิมพ์เอง ให้ล้างช่อง ตึก/ชั้น/ห้อง' : 'ใช้เมื่อไม่มีเลขห้อง'}
+            onChange={(e) => setForm({ ...form, room: e.target.value })}
+          />
           <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
           <SelectField
             label="บัญชีผู้ถือครอง (ถ้ามี)"
