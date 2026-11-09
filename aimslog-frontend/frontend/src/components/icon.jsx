@@ -11,11 +11,13 @@ export default function Icon({ name, className = 'w-4 h-4' }) {
   )
 }
 
-// โลโก้สาขาวิทยาการคอมพิวเตอร์ มธ. — พื้นขาวเสมอเพื่อให้อ่านออกทั้งธีมสว่างและมืด
+// โลโก้สาขาวิทยาการคอมพิวเตอร์ มธ. — สีดำในธีมสว่าง / สีขาวในธีมมืด (สลับด้วย CSS ใน index.css)
 export function DeptLogo({ className = 'h-10' }) {
+  const alt = 'Computer Science, Thammasat University'
   return (
-    <span className="inline-flex items-center rounded-lg bg-white px-2 py-1 shrink-0">
-      <img src="/cs-tu-logo.png" alt="Computer Science, Thammasat University" className={className} />
+    <span className="inline-flex items-center shrink-0">
+      <img src="/cs-tu-logo-black.png" alt={alt} className={`logo-light ${className}`} />
+      <img src="/cs-tu-logo-white.png" alt={alt} className={`logo-dark ${className}`} />
     </span>
   )
 }

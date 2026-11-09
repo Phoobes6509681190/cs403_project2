@@ -25,6 +25,7 @@ export default function InspectionPage() {
   const [tab, setTab] = useState('pending')
   const [q, setQ] = useState('')
   const [room, setRoom] = useState('')
+  const [editingId, setEditingId] = useState(null) // ชิ้นที่ตรวจแล้วและกำลังแก้ผล
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulking, setBulking] = useState(false)
   const debouncedQ = useDebounce(q, 200)
@@ -55,7 +56,7 @@ export default function InspectionPage() {
   const markStatus = async (assetId, status) => {
     // กันกดพลาด: ถ้าชิ้นนี้บันทึกผลไว้แล้ว ให้ยืนยันก่อนเปลี่ยน
     const prev = inspection.items.find((i) => i.assetId === assetId)
-    if (prev?.checked && prev.status !== status &&
+    if (prev?.checked && prev.status !== status && editingId !== assetId &&
         !window.confirm(`ชิ้นนี้บันทึกผลไว้แล้ว ต้องการเปลี่ยนเป็น "${STATUS[status].label}" หรือไม่?`)) return
     setSubmittingId(assetId)
     try {
@@ -64,6 +65,7 @@ export default function InspectionPage() {
         ...prev,
         items: prev.items.map((it) => (it.assetId === assetId ? item : it)),
       }))
+      setEditingId(null)
     } catch (err) {
       toast.error(err.response?.data?.message || 'บันทึกผลตรวจนับไม่สำเร็จ')
     } finally {
@@ -162,6 +164,10 @@ export default function InspectionPage() {
             <Btn variant="danger" onClick={() => setConfirmClose(true)}>ปิดรอบ</Btn>
           )}
         </div>
+        <p className="mt-3 text-[12px] text-muted bg-surface2 rounded-xl px-3 py-2">
+          รอบตรวจนับ = การตรวจสอบพัสดุประจำปีงบประมาณ — ครุภัณฑ์แต่ละชิ้นนับ <b>1 ครั้งต่อรอบ</b> เพื่อยืนยันว่ายังอยู่และสภาพเป็นอย่างไร
+          ชิ้นที่ตรวจแล้วจะย้ายไปแท็บ "ตรวจแล้ว" (กด "แก้ไขผล" ได้ถ้าบันทึกผิด) · เมื่อปิดรอบ ผลจะล็อกและใช้ออกรายงานประจำปี
+        </p>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />
           {!mine && progress?.selfChecked > 0 && (
@@ -228,13 +234,24 @@ export default function InspectionPage() {
                   )}
                 </div>
                 {item.checked && <StatusPill status={item.status} />}
+                {item.checked && isOpen && item.canInspect && editingId !== item.assetId && (
+                  <button onClick={() => setEditingId(item.assetId)} className="text-[12px] text-brand hover:underline whitespace-nowrap">
+                    แก้ไขผล
+                  </button>
+                )}
               </div>
-              {isOpen && item.canInspect && (
-                <InspectButtons
-                  current={item.status}
-                  disabled={submittingId === item.assetId}
-                  onPick={(s) => markStatus(item.assetId, s)}
-                />
+              {/* ยังไม่ตรวจ = แสดงปุ่มเลย, ตรวจแล้ว = ต้องกด "แก้ไขผล" ก่อน (กันกดซ้ำโดยไม่ตั้งใจ) */}
+              {isOpen && item.canInspect && (!item.checked || editingId === item.assetId) && (
+                <div className="space-y-1">
+                  <InspectButtons
+                    current={item.status}
+                    disabled={submittingId === item.assetId}
+                    onPick={(s) => markStatus(item.assetId, s)}
+                  />
+                  {editingId === item.assetId && (
+                    <button onClick={() => setEditingId(null)} className="text-[12px] text-muted hover:underline">ยกเลิกการแก้ไข</button>
+                  )}
+                </div>
               )}
             </li>
           ))}

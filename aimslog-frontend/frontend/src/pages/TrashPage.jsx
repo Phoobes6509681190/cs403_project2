@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../components/icon'
 import { Card, Btn, StatusPill, ConfirmDialog, LoadingState, ErrorState, EmptyState, useToast } from '../components/UI'
-import { getTrash, restoreAsset, downloadBackup } from '../services/assetService'
+import { getTrash, restoreAsset, downloadBackup, purgeAsset, emptyTrash } from '../services/assetService'
 import { formatDateTimeTH, nf } from '../utils/format'
 
 // ถังขยะ: การลบครุภัณฑ์เป็นแค่การซ่อน (soft delete) จึงกู้คืนได้เสมอ
@@ -11,6 +11,7 @@ export default function TrashPage() {
   const [items, setItems] = useState([])
   const [state, setState] = useState('loading')
   const [toRestore, setToRestore] = useState(null)
+  const [toPurge, setToPurge] = useState(null) // asset หรือ 'all'
   const [busy, setBusy] = useState(false)
   const [backingUp, setBackingUp] = useState(false)
 
@@ -38,6 +39,20 @@ export default function TrashPage() {
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'กู้คืนไม่สำเร็จ')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const purge = async () => {
+    setBusy(true)
+    try {
+      const { deleted } = toPurge === 'all' ? await emptyTrash() : await purgeAsset(toPurge.id)
+      toast.success(`ลบถาวร ${nf(deleted)} รายการแล้ว`)
+      setToPurge(null)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ลบถาวรไม่สำเร็จ')
     } finally {
       setBusy(false)
     }
@@ -71,8 +86,15 @@ export default function TrashPage() {
       </Card>
 
       <Card className="p-4">
-        <h2 className="font-semibold mb-1">ถังขยะ ({nf(items.length)})</h2>
-        <p className="text-[12px] text-muted mb-3">ครุภัณฑ์ที่ถูกลบจะอยู่ที่นี่ ไม่หายไปจากระบบ และกู้คืนพร้อมประวัติเดิมได้ทุกเมื่อ</p>
+        <div className="flex flex-wrap items-start gap-2 mb-3">
+          <div className="flex-1 min-w-[240px]">
+            <h2 className="font-semibold mb-1">ถังขยะ ({nf(items.length)})</h2>
+            <p className="text-[12px] text-muted">
+              ครุภัณฑ์ที่ถูกลบจะอยู่ที่นี่ กู้คืนพร้อมประวัติเดิมได้ — ถ้า <b>ลบถาวร</b> จะกู้คืนไม่ได้อีก (ควรดาวน์โหลดไฟล์สำรองก่อน)
+            </p>
+          </div>
+          {items.length > 0 && <Btn variant="danger" onClick={() => setToPurge('all')}>ล้างถังขยะ</Btn>}
+        </div>
 
         {state === 'loading' && <LoadingState />}
         {state === 'error' && <ErrorState onRetry={load} message="โหลดถังขยะไม่สำเร็จ" />}
@@ -98,7 +120,10 @@ export default function TrashPage() {
                       {formatDateTimeTH(a.deletedAt)}{a.deletedBy && <span className="block text-[11px] text-faint">โดย {a.deletedBy}</span>}
                     </td>
                     <td className="py-2.5 text-right">
-                      <Btn onClick={() => setToRestore(a)}><Icon name="restore" /> กู้คืน</Btn>
+                      <div className="flex justify-end gap-2">
+                        <Btn onClick={() => setToRestore(a)}><Icon name="restore" /> กู้คืน</Btn>
+                        <Btn onClick={() => setToPurge(a)} className="text-bad"><Icon name="trash" /> ลบถาวร</Btn>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -107,6 +132,21 @@ export default function TrashPage() {
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={!!toPurge}
+        title={toPurge === 'all' ? 'ล้างถังขยะ' : 'ลบถาวร'}
+        message={
+          toPurge === 'all'
+            ? `ลบถาวรทั้ง ${nf(items.length)} รายการในถังขยะ พร้อมประวัติการแก้ไข? กู้คืนไม่ได้อีก (ผลตรวจนับปีที่ผ่านมายังอยู่ในรายงาน)`
+            : `ลบ "${toPurge?.name}" (${toPurge?.code}) ถาวร พร้อมประวัติการแก้ไข? กู้คืนไม่ได้อีก`
+        }
+        confirmLabel="ลบถาวร"
+        danger
+        loading={busy}
+        onConfirm={purge}
+        onCancel={() => setToPurge(null)}
+      />
 
       <ConfirmDialog
         open={!!toRestore}
