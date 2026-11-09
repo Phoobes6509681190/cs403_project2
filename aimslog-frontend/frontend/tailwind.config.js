@@ -24,8 +24,6 @@ export default {
         gonesoft: 'var(--gone-soft)',
       },
       boxShadow: { card: 'var(--shadow)' },
-      // มุมโค้งน้อยลงทั้งระบบ — ดูเป็นเอกสาร/ทะเบียนมากกว่าแอปสำเร็จรูป
-      borderRadius: { lg: '4px', xl: '6px', '2xl': '8px' },
       fontFamily: {
         sans: ['"IBM Plex Sans Thai"', '"Noto Sans Thai"', 'system-ui', 'sans-serif'],
         // เลขครุภัณฑ์/ตัวเลขในตาราง ใช้ฟอนต์ความกว้างเท่ากัน อ่านเทียบแนวได้ง่าย

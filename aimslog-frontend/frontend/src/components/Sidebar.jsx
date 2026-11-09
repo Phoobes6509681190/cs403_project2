@@ -30,24 +30,24 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
           </div>
         </div>
 
-        <p className="mx-5 pt-3 pb-2 text-[11px] text-faint tracking-wide border-t border-line">เมนู</p>
+        <p className="px-6 pt-2 pb-2 text-[11px] text-faint tracking-wide">เมนู</p>
 
-        <nav className="px-3 space-y-0.5">
+        <nav className="px-3 space-y-1">
           {visibleNav.map((n) => (
             <NavLink
               key={n.key}
               to={n.path}
               onClick={() => setOpen(false)}
               className={() =>
-                `relative w-full flex items-center gap-3 px-3 py-2 text-[13px] transition-colors
-                 ${n.key === activeKey ? 'text-ink font-semibold bg-surface2' : 'text-muted font-medium hover:text-ink'}`
+                `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full text-[13px] transition-colors
+                 ${n.key === activeKey ? 'text-brandink font-semibold bg-brandsoft' : 'text-muted font-medium hover:bg-surface2 hover:text-ink'}`
               }
             >
               {() => (
                 <>
                   <Icon name={n.icon} />
                   {n.label}
-                  {n.key === activeKey && <span className="absolute -left-3 top-1 bottom-1 w-[3px] bg-brand" />}
+                  {n.key === activeKey && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand" />}
                 </>
               )}
             </NavLink>
@@ -55,7 +55,7 @@ export default function Sidebar({ open, setOpen, onLogoutClick }) {
         </nav>
 
         <div className="mt-auto p-3 space-y-2">
-          <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
+          <div className="flex items-center gap-3 rounded-3xl border border-line px-3 py-2.5">
             <Avatar user={user} size={36} />
             <Link to="/profile" onClick={() => setOpen(false)} title="โปรไฟล์ / ตั้งค่า" className="min-w-0 flex-1 group">
               <p className="text-[13px] font-semibold leading-tight truncate group-hover:text-brand">{user?.name || user?.username}</p>
