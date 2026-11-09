@@ -73,3 +73,12 @@ test("รายงานต้อง login", async () => {
   assert.strictEqual((await fetch(`${base}/reports/summary`)).status, 401);
   assert.strictEqual((await fetch(`${base}/reports/detail`)).status, 401);
 });
+
+test("เปลี่ยนรหัสผ่าน: ต้อง login และ user ทั่วไปรีเซ็ตรหัสคนอื่นไม่ได้", async () => {
+  assert.strictEqual((await fetch(`${base}/auth/password`, { method: "PUT" })).status, 401);
+  const h = { Authorization: `Bearer ${tokenFor("user")}`, "Content-Type": "application/json" };
+  const r = await fetch(`${base}/users/64b000000000000000000002/password`, { method: "PUT", headers: h, body: "{}" });
+  assert.strictEqual(r.status, 403);
+  const short = await fetch(`${base}/auth/password`, { method: "PUT", headers: h, body: JSON.stringify({ currentPassword: "a", newPassword: "b" }) });
+  assert.strictEqual(short.status, 400);
+});

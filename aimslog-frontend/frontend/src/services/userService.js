@@ -8,3 +8,8 @@ export function createUser(payload) {
   // payload: { username, name, password, role }
   return api.post('/users', payload).then((res) => res.data)
 }
+
+// Admin ตั้งรหัสใหม่ให้ผู้ใช้ที่ลืมรหัสผ่าน
+export function resetUserPassword(userId, newPassword) {
+  return api.put(`/users/${userId}/password`, { newPassword }).then((res) => res.data)
+}

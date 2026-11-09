@@ -60,3 +60,28 @@ exports.me = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// PUT /api/auth/password body: { currentPassword, newPassword } — เปลี่ยนรหัสผ่านของตัวเอง
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "กรอกรหัสผ่านเดิมและรหัสผ่านใหม่" });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, message: "รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร" });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ success: false, message: "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม" });
+    }
+    const user = await User.findById(req.user.userId);
+    if (!user || !(await bcrypt.compare(String(currentPassword), user.password))) {
+      return res.status(400).json({ success: false, message: "รหัสผ่านเดิมไม่ถูกต้อง" });
+    }
+    user.password = await bcrypt.hash(String(newPassword), 10);
+    await user.save();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
