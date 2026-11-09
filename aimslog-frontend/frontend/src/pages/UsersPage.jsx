@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, Btn, Field, SelectField, Modal, ConfirmDialog, Avatar, RolePill, LoadingState, ErrorState, useToast } from '../components/UI'
-import { getUsers, createUser, updateUser, resetUserPassword } from '../services/userService'
+import { getUsers, createUser, updateUser, resetUserPassword, resetUserMfa, unlockUser } from '../services/userService'
 import { useAuth } from '../hooks/useAuth'
 
 const MIN = 8
@@ -59,7 +59,10 @@ export default function UsersPage() {
   const applyConfirm = async () => {
     setSaving(true)
     try {
-      const u = await updateUser(confirm.user.id, confirm.patch)
+      const u =
+        confirm.action === 'unlock' ? await unlockUser(confirm.user.id)
+          : confirm.action === 'mfa' ? await resetUserMfa(confirm.user.id)
+            : await updateUser(confirm.user.id, confirm.patch)
       setUsers((p) => p.map((x) => (x.id === u.id ? u : x)))
       toast.success('บันทึกแล้ว')
       setConfirm(null)
@@ -111,6 +114,8 @@ export default function UsersPage() {
                 <p className="font-medium text-[14px]">
                   {u.name} {self && <span className="text-[11px] text-faint">(คุณ)</span>}
                   {!isActive && <span className="ml-1 text-[11px] text-bad">ปิดบัญชีแล้ว</span>}
+                  {u.locked && <span className="ml-1 text-[11px] text-bad">ถูกล็อก (รหัสผิดหลายครั้ง)</span>}
+                  {u.mfaEnabled && <span className="ml-1 text-[11px] text-ok">MFA</span>}
                 </p>
                 <p className="text-[12px] text-muted">@{u.username}{u.position ? ` · ${u.position}` : ''}</p>
               </div>
@@ -132,6 +137,23 @@ export default function UsersPage() {
                     {u.role === 'admin' ? 'ลดเป็นผู้ใช้ทั่วไป' : 'ตั้งเป็น Admin'}
                   </Btn>
                   <Btn onClick={() => setResetFor(u)}>ตั้งรหัสใหม่</Btn>
+                  {u.locked && (
+                    <Btn onClick={() => setConfirm({ user: u, action: 'unlock', title: 'ปลดล็อกบัญชี', message: `ปลดล็อก ${u.name} ให้ลองเข้าสู่ระบบได้ทันที?` })}>
+                      ปลดล็อก
+                    </Btn>
+                  )}
+                  {u.mfaEnabled && (
+                    <Btn
+                      onClick={() =>
+                        setConfirm({
+                          user: u, action: 'mfa', title: 'รีเซ็ต MFA',
+                          message: `ปิด MFA ของ ${u.name}? (ใช้เมื่อทำมือถือหาย — ควรยืนยันตัวตนกับเจ้าของบัญชีก่อน)`,
+                        })
+                      }
+                    >
+                      รีเซ็ต MFA
+                    </Btn>
+                  )}
                   <Btn
                     variant={isActive ? 'ghost' : 'primary'}
                     onClick={() =>
@@ -170,7 +192,7 @@ export default function UsersPage() {
           <Field label="ชื่อ-สกุล" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Field label="ตำแหน่ง" placeholder="เช่น อาจารย์, นักวิชาการ" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
           <Field label="ชื่อผู้ใช้ (ใช้ login)" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          <Field label="รหัสผ่านเริ่มต้น" type="text" required minLength={MIN} hint={`อย่างน้อย ${MIN} ตัว — แจ้งให้ผู้ใช้เปลี่ยนเองภายหลัง`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <Field label="รหัสผ่านเริ่มต้น" type="text" required minLength={MIN} hint={`อย่างน้อย ${MIN} ตัว — ผู้ใช้จะถูกบังคับให้ตั้งรหัสใหม่ตอน login ครั้งแรก`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <SelectField
             label="สิทธิ์"
             value={form.role}
@@ -192,7 +214,7 @@ export default function UsersPage() {
         }
       >
         <form id="reset-pass" onSubmit={doReset}>
-          <Field label="รหัสผ่านใหม่" type="text" required minLength={MIN} hint="แจ้งรหัสนี้ให้ผู้ใช้ แล้วให้เปลี่ยนเองในหน้าโปรไฟล์" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
+          <Field label="รหัสผ่านใหม่" type="text" required minLength={MIN} hint="แจ้งรหัสนี้ให้ผู้ใช้ — ระบบจะบังคับให้ตั้งรหัสใหม่ตอน login" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
         </form>
       </Modal>
 
@@ -201,7 +223,7 @@ export default function UsersPage() {
         title={confirm?.title}
         message={confirm?.message}
         confirmLabel="ยืนยัน"
-        danger={confirm?.patch?.active === false}
+        danger={confirm?.patch?.active === false || confirm?.action === 'mfa'}
         loading={saving}
         onConfirm={applyConfirm}
         onCancel={() => setConfirm(null)}

@@ -20,6 +20,8 @@ Deploy: Frontend บน Vercel, Backend บน Render
 
 ## ข้อตกลงทางเทคนิค
 - Auth: JWT ใน **httpOnly cookie** `token` + CSRF double-submit (`csrfToken` cookie ↔ header `X-CSRF-Token`), อายุ 8 ชม.
+  ล็อกบัญชีเมื่อผิด 5 ครั้ง (15 นาที) + จำกัดต่อ IP, บันทึก `LoginLog` (180 วัน), MFA แบบ TOTP (otplib) + รหัสสำรอง,
+  `mustChangePassword` สำหรับรหัสชั่วคราว — JWT ที่มี `purpose` (เช่น mfa) ใช้เป็น session ไม่ได้
   Postman ใช้ `Authorization: Bearer` ได้ · Frontend เรียก `/api` ผ่าน proxy โดเมนเดียวกัน
   (dev: `vite.config.js` proxy → :4000, prod: `vercel.json` rewrites → Render)
 - Response ของ asset ใช้ชื่อฟิลด์ฝั่ง Frontend (`code, cat, room, owner, ...`) — แปลงใน `backend/src/services/assetDto.js`
@@ -30,7 +32,8 @@ Deploy: Frontend บน Vercel, Backend บน Render
 ## คำสั่ง
 ```bash
 cd backend && npm install && cp .env.example .env   # ใส่ MONGO_URI, JWT_SECRET
-npm run seed     # สร้าง admin/staff (รหัส 123456) + ตารางงบ
+npm run seed     # สร้าง admin/staff (รหัส 123456 — บังคับเปลี่ยนตอน login ครั้งแรก) + ตารางงบ
+npm run reset-password -- <username>   # กู้รหัสฉุกเฉิน: สุ่มรหัสชั่วคราว + บังคับเปลี่ยนตอน login
 npm run dev      # API ที่ :4000
 npm test         # unit + HTTP + integration (integration ใช้ MongoDB ชั่วคราว — ครั้งแรกดาวน์โหลดตัว MongoDB, เปิดไม่ได้จะข้าม)
 node samples/make-sample.js   # สร้างไฟล์ตัวอย่างสำหรับทดสอบ Import

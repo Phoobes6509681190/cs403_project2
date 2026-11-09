@@ -21,7 +21,8 @@ const USERS = [
       console.log(`- ${u.username} มีอยู่แล้ว (ข้าม)`);
       continue;
     }
-    await User.create({ ...u, password: await bcrypt.hash(u.password, 10) });
+    // รหัสเริ่มต้นจาก seed -> บังคับเปลี่ยนตอน login ครั้งแรก
+    await User.create({ ...u, password: await bcrypt.hash(u.password, 10), mustChangePassword: true });
     console.log(`+ สร้าง ${u.username} (${u.role})`);
   }
   console.log("เสร็จแล้ว — อย่าลืมเปลี่ยนรหัสผ่านก่อนใช้งานจริง");

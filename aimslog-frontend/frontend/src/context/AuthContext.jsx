@@ -38,11 +38,20 @@ export function AuthProvider({ children }) {
       .catch(() => setStatus('guest'))
   }, [])
 
+  // คืน { mfaRequired, mfaToken } ถ้าบัญชีเปิด MFA (ยังไม่ login จนกว่าจะเรียก completeMfa)
   const login = useCallback(async (username, password) => {
     const data = await authService.login(username, password)
+    if (data.mfaRequired) return { mfaRequired: true, mfaToken: data.mfaToken }
     setUser(data.user)
     setStatus('authenticated')
-    return data.user
+    return { user: data.user }
+  }, [])
+
+  const completeMfa = useCallback(async (mfaToken, code) => {
+    const data = await authService.verifyMfa(mfaToken, code)
+    setUser(data.user)
+    setStatus('authenticated')
+    return data
   }, [])
 
   const logout = useCallback(async () => {
@@ -84,6 +93,7 @@ export function AuthProvider({ children }) {
     // ใช้หลังแก้โปรไฟล์ ให้ชื่อ/รูปที่เมนูอัปเดตทันที
     updateUser: (u) => setUser((prev) => ({ ...prev, ...u })),
     login,
+    completeMfa,
     logout,
   }
 

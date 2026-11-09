@@ -13,6 +13,8 @@ const authMiddleware = (req, res, next) => {
 
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
+    // token เฉพาะทาง (เช่น mfa = รอยืนยันรหัส 6 หลัก) ใช้แทน session ไม่ได้ — กันข้ามขั้น MFA
+    if (req.user.purpose) throw new Error("not a session token");
     req.authViaCookie = !bearer && !!req.cookies?.token;
     next();
   } catch {
@@ -44,5 +46,15 @@ module.exports = authMiddleware;
 module.exports.authMiddleware = authMiddleware;
 module.exports.csrfProtection = csrfProtection;
 module.exports.requireRole = requireRole;
+// บัญชีที่ต้องเปลี่ยนรหัสก่อน (รหัสชั่วคราวจาก Admin/สคริปต์กู้รหัส) เรียกได้เฉพาะ /api/auth/*
+// (ดูตัวเอง, เปลี่ยนรหัส, ออกจากระบบ) — กันคนที่แอบรู้รหัสชั่วคราวเข้าไปใช้งานต่อ
+const requirePasswordChanged = (req, res, next) => {
+  if (req.user?.mcp && req.baseUrl !== "/api/auth") {
+    return res.status(403).json({ success: false, code: "PASSWORD_CHANGE_REQUIRED", message: "กรุณาเปลี่ยนรหัสผ่านก่อนใช้งาน" });
+  }
+  next();
+};
+
+module.exports.requirePasswordChanged = requirePasswordChanged;
 // ใช้ในทุก route ที่ต้อง login: router.use(...protect)
-module.exports.protect = [authMiddleware, csrfProtection];
+module.exports.protect = [authMiddleware, csrfProtection, requirePasswordChanged];

@@ -9,4 +9,5 @@ export const TITLES = {
   profile: 'โปรไฟล์',
   users: 'จัดการผู้ใช้',
   trash: 'ถังขยะและสำรองข้อมูล',
+  'login-logs': 'ประวัติการเข้าสู่ระบบ',
 }

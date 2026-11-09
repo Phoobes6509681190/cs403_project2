@@ -26,3 +26,20 @@ export function updateProfile(payload) {
   // payload: { name, position, email, phone, bio, avatar }
   return api.put('/auth/profile', payload).then((res) => res.data)
 }
+
+// ---------- ยืนยัน 2 ขั้นตอน (MFA) ----------
+export function verifyMfa(mfaToken, code) {
+  return api.post('/auth/mfa/verify', { mfaToken, code }).then((res) => res.data)
+}
+export function mfaSetup() {
+  return api.post('/auth/mfa/setup').then((res) => res.data)
+}
+export function mfaEnable(code) {
+  return api.post('/auth/mfa/enable', { code }).then((res) => res.data)
+}
+export function mfaDisable(password) {
+  return api.post('/auth/mfa/disable', { password }).then((res) => res.data)
+}
+export function mfaNewBackupCodes(password) {
+  return api.post('/auth/mfa/backup-codes', { password }).then((res) => res.data)
+}

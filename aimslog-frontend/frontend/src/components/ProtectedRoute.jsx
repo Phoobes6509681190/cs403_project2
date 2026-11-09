@@ -14,7 +14,7 @@ import { LoadingState } from './UI'
  *    ฝั่ง frontend ใครก็เปิดดู/แก้ไขได้ผ่าน dev tools
  */
 export default function ProtectedRoute() {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const location = useLocation()
 
   if (status === 'loading') {
@@ -23,6 +23,11 @@ export default function ProtectedRoute() {
 
   if (status !== 'authenticated') {
     return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
+  // รหัสชั่วคราว -> ต้องตั้งรหัสใหม่ก่อนเข้าหน้าอื่น
+  if (user?.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
   }
 
   return <Outlet />
