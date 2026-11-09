@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
+  const [forgotOpen, setForgotOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -77,10 +78,28 @@ export default function LoginPage() {
           </Btn>
         </form>
 
+        <div className="mt-3 text-center">
+          <button type="button" onClick={() => setForgotOpen((v) => !v)} className="text-[12px] text-brand hover:underline">
+            ลืมรหัสผ่าน?
+          </button>
+        </div>
+        {forgotOpen && (
+          <div className="mt-3 rounded-2xl bg-surface2 px-4 py-3 text-[12px] text-muted leading-relaxed space-y-1.5">
+            <p>
+              <b className="text-ink">บุคลากร / กรรมการ:</b> ติดต่อเจ้าหน้าที่พัสดุ (Admin) ให้ตั้งรหัสชั่วคราวให้
+              แล้ว login ด้วยรหัสนั้น — ระบบจะให้ตั้งรหัสใหม่ของคุณเองทันที
+            </p>
+            <p>
+              <b className="text-ink">เจ้าหน้าที่พัสดุ (Admin):</b> ให้ Admin อีกคนตั้งรหัสให้ที่เมนู "จัดการผู้ใช้"
+              หรือติดต่อผู้ดูแลระบบให้ใช้สคริปต์กู้รหัส
+            </p>
+          </div>
+        )}
+
         <p className="mt-6 pt-5 border-t border-line text-center text-[11px] text-faint leading-relaxed">
           เข้าใช้ได้เฉพาะบุคลากรสาขาวิทยาการคอมพิวเตอร์
           <br />
-          มหาวิทยาลัยธรรมศาสตร์ · การเข้าใช้งานทั้งหมดถูกบันทึกไว้
+          มหาวิทยาลัยธรรมศาสตร์
         </p>
       </Card>
     </main>
