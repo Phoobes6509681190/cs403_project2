@@ -8,7 +8,8 @@
     "seed": "node src/seed.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration.test.js",
-    "reset-password": "node src/scripts/reset-password.js"
+    "reset-password": "node src/scripts/reset-password.js",
+    "clean-inspections": "node src/scripts/clean-inspections.js"
   },
   "keywords": [],
   "author": "",
