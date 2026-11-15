@@ -32,6 +32,15 @@ test("token ผิด -> 401", async () => {
   assert.strictEqual(r.status, 401);
 });
 
+test("user ทั่วไปลบหลายรายการไม่ได้ -> 403", async () => {
+  const r = await fetch(`${base}/assets/bulk-delete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${tokenFor("user")}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ all: true, query: {}, expected: 0 })
+  });
+  assert.strictEqual(r.status, 403);
+});
+
 test("user ทั่วไปเพิ่มครุภัณฑ์ไม่ได้ -> 403", async () => {
   const r = await fetch(`${base}/assets`, {
     method: "POST",
