@@ -520,4 +520,33 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     const active = await api("GET", "/inspections/active", { token: tok.admin });
     assert.strictEqual(active.data, null);
   });
+
+  await t.test("ลบหลายรายการ: เลือกเอง / ทั้งหมดตามตัวกรอง (ต้องตรงจำนวน) / user ทั่วไปไม่ได้", async () => {
+    const made = [];
+    for (let i = 1; i <= 3; i++) {
+      const r = await api("POST", "/assets", { token: tok.admin, body: { code: `วทท-8พ-69-${i}/3`, name: `ทดสอบลบหลายชิ้น ${i}` } });
+      assert.strictEqual(r.status, 201);
+      made.push(r.data.id);
+    }
+    assert.strictEqual((await api("POST", "/assets/bulk-delete", { token: tok.member, body: { ids: made } })).status, 403);
+    assert.strictEqual((await api("POST", "/assets/bulk-delete", { token: tok.admin, body: { ids: [] } })).status, 400);
+
+    const two = await api("POST", "/assets/bulk-delete", { token: tok.admin, body: { ids: [made[0], made[1], "not-an-id"] } });
+    assert.strictEqual(two.data.deleted, 2);
+    const trash = await api("GET", "/assets/trash", { token: tok.admin });
+    assert.ok(made.slice(0, 2).every((id) => trash.data.items.some((a) => a.id === id)));
+    const h = await api("GET", `/assets/${made[0]}/history`, { token: tok.admin });
+    assert.ok(h.data.items.some((x) => x.action === "delete"), "มีประวัติการลบ");
+    // ลบซ้ำชิ้นที่อยู่ในถังขยะแล้ว ไม่นับ
+    assert.strictEqual((await api("POST", "/assets/bulk-delete", { token: tok.admin, body: { ids: [made[0]] } })).data.deleted, 0);
+
+    // ทั้งหมดตามตัวกรอง: จำนวนไม่ตรง = 409, ตรง = ลบ
+    const query = { q: "ทดสอบลบหลายชิ้น" };
+    const miss = await api("POST", "/assets/bulk-delete", { token: tok.admin, body: { all: true, query, expected: 5 } });
+    assert.strictEqual(miss.status, 409);
+    const ok = await api("POST", "/assets/bulk-delete", { token: tok.admin, body: { all: true, query, expected: 1 } });
+    assert.strictEqual(ok.data.deleted, 1);
+    const left = await api("GET", "/assets?q=ทดสอบลบหลายชิ้น", { token: tok.admin });
+    assert.strictEqual(left.data.total, 0);
+  });
 });

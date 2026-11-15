@@ -29,29 +29,35 @@ function applyInput(asset, input) {
   }
 }
 
+// ตัวกรองเดียวกันทั้งหน้ารายการและ "ลบทั้งหมดตามตัวกรอง"
+function buildFilter(query = {}, user) {
+  const { q, status, room, budget, holder } = query;
+  const filter = { isDeleted: false };
+  if (status && STATUS_KEYS.includes(status)) filter.status = status;
+  if (room) filter["location.label"] = String(room);
+  if (budget) filter.budget = String(budget);
+  if (holder) filter.holderName = String(holder);
+  // ?holderUser=me — ครุภัณฑ์ที่ฉันถือครอง (หน้าโปรไฟล์)
+  if (query.holderUser === "me" && user) filter.holderUser = user.userId;
+  // ?qr=unprinted — เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR (เช่น ของที่เพิ่ง import เข้ามา)
+  if (query.qr === "unprinted") filter.qrPrintedAt = null;
+  if (q && String(q).trim()) {
+    const re = new RegExp(escapeRegex(String(q).trim()), "i");
+    filter.$or = [
+      { assetCode: re }, { name: re }, { brand: re }, { model: re },
+      { holderName: re }, { "location.label": re }
+    ];
+  }
+  return filter;
+}
+
 // GET /api/assets?q=&status=&room=&budget=&page=1&perPage=10
 exports.getAssets = async (req, res) => {
   try {
-    const { q, status, room, budget, holder } = req.query;
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const perPage = Math.min(200, Math.max(1, parseInt(req.query.perPage, 10) || 20));
 
-    const filter = { isDeleted: false };
-    if (status && STATUS_KEYS.includes(status)) filter.status = status;
-    if (room) filter["location.label"] = String(room);
-    if (budget) filter.budget = String(budget);
-    if (holder) filter.holderName = String(holder);
-    // ?holderUser=me — ครุภัณฑ์ที่ฉันถือครอง (หน้าโปรไฟล์)
-    if (req.query.holderUser === "me") filter.holderUser = req.user.userId;
-    // ?qr=unprinted — เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR (เช่น ของที่เพิ่ง import เข้ามา)
-    if (req.query.qr === "unprinted") filter.qrPrintedAt = null;
-    if (q && String(q).trim()) {
-      const re = new RegExp(escapeRegex(String(q).trim()), "i");
-      filter.$or = [
-        { assetCode: re }, { name: re }, { brand: re }, { model: re },
-        { holderName: re }, { "location.label": re }
-      ];
-    }
+    const filter = buildFilter(req.query, req.user);
 
     const [items, total, rooms, budgets, qrUnprinted] = await Promise.all([
       Asset.find(filter).sort(req.query.sort === "-createdAt" ? { createdAt: -1, _id: -1 } : { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
@@ -175,6 +181,38 @@ exports.deleteAsset = async (req, res) => {
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
     await AssetHistory.create({ asset: asset._id, action: "delete", ...actor(req) });
     res.json({ success: true });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
+// POST /api/assets/bulk-delete (admin) — ลบหลายชิ้นไปถังขยะ (soft delete, กู้คืนได้)
+//   { ids: [...] }                         ลบชิ้นที่เลือก
+//   { all: true, query: {q,status,...}, expected: N }  ลบทุกชิ้นตามตัวกรอง — expected ต้องตรงจำนวนที่พบ
+//                                          (กันลบผิดเมื่อข้อมูลเปลี่ยนระหว่างที่หน้าเว็บเปิดค้าง)
+exports.bulkDelete = async (req, res) => {
+  try {
+    const body = req.body || {};
+    let filter;
+    if (body.all === true) {
+      const query = body.query && typeof body.query === "object" ? body.query : {};
+      filter = buildFilter(query);
+      const count = await Asset.countDocuments(filter);
+      if (count !== Number(body.expected)) {
+        return fail(res, 409, `จำนวนรายการเปลี่ยนไป (พบ ${count} รายการ) กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง`);
+      }
+    } else {
+      const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map(String))].filter(isId) : [];
+      if (!ids.length) return fail(res, 400, "ไม่ได้เลือกรายการ");
+      if (ids.length > 5000) return fail(res, 400, "เลือกได้ไม่เกิน 5,000 รายการต่อครั้ง");
+      filter = { _id: { $in: ids }, isDeleted: false };
+    }
+    const targets = await Asset.find(filter, { _id: 1 }).lean();
+    if (!targets.length) return res.json({ success: true, deleted: 0 });
+    const ids = targets.map((a) => a._id);
+    await Asset.updateMany({ _id: { $in: ids }, isDeleted: false }, { isDeleted: true });
+    await AssetHistory.insertMany(ids.map((id) => ({ asset: id, action: "delete", ...actor(req) })));
+    res.json({ success: true, deleted: ids.length });
   } catch (error) {
     fail(res, 500, error.message);
   }

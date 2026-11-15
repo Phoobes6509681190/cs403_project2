@@ -29,6 +29,11 @@ export function deleteAsset(id) {
   return api.delete(`/assets/${id}`).then((res) => res.data)
 }
 
+// ลบหลายชิ้นไปถังขยะ: { ids } หรือ { all: true, query, expected } (ทุกชิ้นตามตัวกรอง)
+export function bulkDeleteAssets(payload) {
+  return api.post('/assets/bulk-delete', payload, { timeout: 60000 }).then((res) => res.data)
+}
+
 export function getBudgets() {
   return api.get('/budgets').then((res) => res.data)
 }

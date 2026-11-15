@@ -19,6 +19,7 @@ router.delete("/trash", admin, asset.emptyTrash);
 router.get("/", asset.getAssets);
 router.post("/", admin, asset.createAsset);
 router.post("/qr-printed", admin, asset.markQrPrinted);
+router.post("/bulk-delete", admin, asset.bulkDelete);
 router.get("/:id", asset.getAsset);
 router.get("/:id/history", asset.getAssetHistory);
 router.put("/:id", admin, asset.updateAsset);

@@ -7,7 +7,7 @@ import {
   LoadingState, ErrorState, EmptyState, useToast,
 } from '../components/UI'
 import { STATUS_OPTIONS } from '../data/statusConfig'
-import { getAssets, createAsset, updateAsset, deleteAsset } from '../services/assetService'
+import { getAssets, createAsset, updateAsset, deleteAsset, bulkDeleteAssets } from '../services/assetService'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
 import { nf } from '../utils/format'
@@ -31,8 +31,17 @@ export default function AssetListPage() {
   const [status, setStatus] = useState('')
   const [room, setRoom] = useState('')
   const [budget, setBudget] = useState('')
-  const [selected, setSelected] = useState([]) // id ที่ติ๊กไว้สำหรับพิมพ์ QR (จำข้ามหน้าได้)
-  const toggleSel = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  const [selected, setSelected] = useState([]) // id ที่ติ๊กไว้ (พิมพ์ QR / ลบ) — จำข้ามหน้าได้
+  const [allMatching, setAllMatching] = useState(false) // เลือก "ทุกรายการตามตัวกรอง" (ไม่ใช่แค่หน้านี้)
+  const toggleSel = (id) => {
+    setAllMatching(false)
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  }
+  const clearSel = () => {
+    setSelected([])
+    setAllMatching(false)
+  }
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [page, setPage] = useState(1)
   const debouncedQ = useDebounce(q, 400)
 
@@ -48,6 +57,8 @@ export default function AssetListPage() {
   useEffect(() => {
     if (canEdit) getUsers({ active: 1 }).then((d) => setUsers(d.items || [])).catch(() => {})
   }, [canEdit])
+
+  useEffect(() => setAllMatching(false), [debouncedQ, status, room, budget])
 
   const [toDelete, setToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -145,6 +156,32 @@ export default function AssetListPage() {
     }
   }
 
+  const filterQuery = () => ({
+    q: debouncedQ || undefined,
+    status: status || undefined,
+    room: room || undefined,
+    budget: budget || undefined,
+  })
+  const selCount = allMatching ? result.total || 0 : selected.length
+
+  const confirmBulkDelete = async () => {
+    setDeleting(true)
+    try {
+      const r = await bulkDeleteAssets(
+        allMatching ? { all: true, query: filterQuery(), expected: result.total } : { ids: selected }
+      )
+      toast.success(`ย้าย ${nf(r.deleted)} รายการไปถังขยะแล้ว`)
+      setBulkOpen(false)
+      clearSel()
+      setPage(1)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ลบไม่สำเร็จ กรุณาลองใหม่')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const pages = Math.max(1, Math.ceil((result.total || 0) / PER_PAGE))
   const rooms = result.rooms || []
   const budgets = result.budgets || []
@@ -153,12 +190,17 @@ export default function AssetListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-semibold mr-auto">รายการครุภัณฑ์ทั้งหมด</h2>
-        {canEdit && selected.length > 0 && (
+        {canEdit && selCount > 0 && (
           <>
-            <Link to={`/assets/labels?ids=${selected.join(',')}`}>
-              <Btn>พิมพ์ QR ที่เลือก ({nf(selected.length)})</Btn>
-            </Link>
-            <button onClick={() => setSelected([])} className="text-[12px] text-muted hover:text-ink px-1">ล้างที่เลือก</button>
+            {!allMatching && (
+              <Link to={`/assets/labels?ids=${selected.join(',')}`}>
+                <Btn>พิมพ์ QR ที่เลือก ({nf(selected.length)})</Btn>
+              </Link>
+            )}
+            <Btn variant="ghost" onClick={() => setBulkOpen(true)}>
+              <span className="text-bad">ลบที่เลือก ({nf(selCount)})</span>
+            </Btn>
+            <button onClick={clearSel} className="text-[12px] text-muted hover:text-ink px-1">ล้างที่เลือก</button>
           </>
         )}
         {canEdit && (
@@ -212,6 +254,25 @@ export default function AssetListPage() {
           <span className="text-[12px] text-faint ml-auto">พบ {nf(result.total || 0)} รายการ</span>
         </div>
 
+        {canEdit && state === 'ready' && result.total > result.items.length && result.items.length > 0 &&
+          result.items.every((a) => selected.includes(a.id)) && (
+          <div className="px-4 py-2 text-[12px] text-center bg-brandsoft/50 border-b border-line">
+            {allMatching ? (
+              <>
+                เลือกทั้งหมด {nf(result.total)} รายการตามตัวกรองแล้ว ·{' '}
+                <button className="text-brand font-medium" onClick={clearSel}>ยกเลิก</button>
+              </>
+            ) : (
+              <>
+                เลือก {nf(result.items.length)} รายการในหน้านี้ ·{' '}
+                <button className="text-brand font-medium" onClick={() => setAllMatching(true)}>
+                  เลือกทั้งหมด {nf(result.total)} รายการตามตัวกรอง
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {state === 'loading' && <LoadingState />}
         {state === 'error' && <ErrorState onRetry={load} message="โหลดรายการครุภัณฑ์ไม่สำเร็จ" />}
 
@@ -229,13 +290,14 @@ export default function AssetListPage() {
                           aria-label="เลือกทั้งหน้า"
                           className="w-4 h-4"
                           checked={result.items.length > 0 && result.items.every((a) => selected.includes(a.id))}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setAllMatching(false)
                             setSelected((s) =>
                               e.target.checked
                                 ? [...new Set([...s, ...result.items.map((a) => a.id)])]
                                 : s.filter((id) => !result.items.some((a) => a.id === id))
                             )
-                          }
+                          }}
                         />
                       </th>
                     )}
@@ -360,6 +422,21 @@ export default function AssetListPage() {
           />
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={bulkOpen}
+        title="ลบหลายรายการ"
+        message={
+          allMatching
+            ? `ยืนยันลบครุภัณฑ์ทั้งหมด ${nf(selCount)} รายการตามตัวกรองที่เลือกอยู่? (ย้ายไปถังขยะ กู้คืนได้ภายหลัง)`
+            : `ยืนยันลบครุภัณฑ์ที่เลือก ${nf(selCount)} รายการ? (ย้ายไปถังขยะ กู้คืนได้ภายหลัง)`
+        }
+        confirmLabel={`ลบ ${nf(selCount)} รายการ`}
+        danger
+        loading={deleting}
+        onConfirm={confirmBulkDelete}
+        onCancel={() => setBulkOpen(false)}
+      />
 
       <ConfirmDialog
         open={!!toDelete}
