@@ -487,4 +487,37 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.ok(users.length >= 5);
     assert.ok(users.every((u) => !("password" in u)));
   });
+
+  await t.test("ล้างรอบทดสอบ: คืนสถานะเดิม ลบผลตรวจและประวัติการตรวจ แต่ไม่ทับที่ Admin แก้เอง", async () => {
+    const { cleanInspections } = require("../src/services/cleanInspections");
+    const open = await api("POST", "/inspections", { token: tok.admin, body: { budgetYear: 2571, committee: [{ userId: ids.member }] } });
+    assert.strictEqual(open.status, 201);
+    const round = open.data.id;
+    const d = await api("GET", `/inspections/${round}`, { token: tok.admin });
+    const [a, b] = d.data.items.filter((i) => i.statusBefore === "ok");
+    assert.ok(a && b, "ต้องมีครุภัณฑ์สถานะปกติอย่างน้อย 2 ชิ้น");
+    const inspectCount = async (id) => (await api("GET", `/assets/${id}/history`, { token: tok.admin })).data.items.filter((x) => x.action === "inspect").length;
+    const before = await inspectCount(a.assetId);
+    for (const it of [a, b]) {
+      const r = await api("POST", `/inspections/${round}/items`, { token: tok.member, body: { assetId: it.assetId, status: "broken" } });
+      assert.strictEqual(r.status, 200);
+    }
+    // Admin แก้ชิ้น b เองหลังตรวจ -> ล้างรอบแล้วต้องไม่ทับค่านี้
+    const upd = await api("PUT", `/assets/${b.assetId}`, { token: tok.admin, body: { status: "unneeded" } });
+    assert.strictEqual(upd.status, 200);
+
+    const [res] = await cleanInspections([round]);
+    assert.strictEqual(res.restored, 1);
+    assert.ok(res.history >= 2);
+
+    const ra = await api("GET", `/assets/${a.assetId}`, { token: tok.admin });
+    assert.strictEqual(ra.data.status, "ok", "คืนสถานะก่อนเปิดรอบ");
+    const rb = await api("GET", `/assets/${b.assetId}`, { token: tok.admin });
+    assert.strictEqual(rb.data.status, "unneeded", "ไม่ทับค่าที่ Admin แก้เอง");
+    assert.strictEqual(await inspectCount(a.assetId), before, "ประวัติการตรวจของรอบนี้ถูกลบ");
+    const list = await api("GET", "/inspections", { token: tok.admin });
+    assert.ok(!list.data.items.some((i) => i.id === round), "รอบถูกลบแล้ว");
+    const active = await api("GET", "/inspections/active", { token: tok.admin });
+    assert.strictEqual(active.data, null);
+  });
 });
