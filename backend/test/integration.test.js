@@ -549,4 +549,17 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     const left = await api("GET", "/assets?q=ทดสอบลบหลายชิ้น", { token: tok.admin });
     assert.strictEqual(left.data.total, 0);
   });
+
+  await t.test("กรองตามปีงบจากเลขครุภัณฑ์: หน้ารายการและรายงาน", async () => {
+    const r = await api("POST", "/assets", { token: tok.admin, body: { code: "วทท-8พ-61-1/1", name: "ทดสอบกรองปี", cat: "ครุภัณฑ์สำนักงาน" } });
+    assert.strictEqual(r.status, 201);
+    const list = await api("GET", "/assets?year=61", { token: tok.admin });
+    assert.strictEqual(list.data.total, 1);
+    assert.ok(list.data.years.includes(61));
+    const sum = await api("GET", "/reports/summary?year=61", { token: tok.admin });
+    assert.strictEqual(sum.data.total, 1);
+    assert.ok(sum.data.options.years.includes(61));
+    const det = await api("GET", "/reports/detail?year=61", { token: tok.admin });
+    assert.strictEqual(det.data.items.length, 1);
+  });
 });

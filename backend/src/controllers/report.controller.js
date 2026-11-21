@@ -12,17 +12,32 @@ function baseFilter(q) {
   const f = { isDeleted: false };
   if (q.budget) f.budget = String(q.budget);
   if (q.room) f["location.label"] = String(q.room);
+  // ปีงบประมาณจากเลขครุภัณฑ์ (พ.ศ. 2 หลัก เช่น 57)
+  const year = parseInt(q.year, 10);
+  if (Number.isFinite(year)) f["codeParts.year"] = year;
   return f;
 }
 
-// GET /api/reports/summary?budget=&room=
+// ตัวเลือกของตัวกรองในหน้ารายงาน (ปี / ห้อง) จากข้อมูลที่ยังไม่ถูกลบ
+async function filterOptions() {
+  const [years, rooms] = await Promise.all([
+    Asset.distinct("codeParts.year", { isDeleted: false }),
+    Asset.distinct("location.label", { isDeleted: false })
+  ]);
+  return {
+    years: years.filter((y) => Number.isFinite(y)).sort((a, b) => b - a),
+    rooms: rooms.filter(Boolean).sort()
+  };
+}
+
+// GET /api/reports/summary?budget=&room=&year=
 // หน้าแรกของรายงาน: จำนวนแยกตามงบ × สถานะ
 //   - ยอดรวมของสาขา "ไม่นับ" ของที่ตัดโอนแล้ว (แสดงแยกเป็นคอลัมน์ transferred)
 //   - ชำรุดแยก ซ่อมได้ (broken) / ซ่อมไม่ได้ (disposal)
 exports.summary = async (req, res) => {
   try {
     const filter = baseFilter(req.query);
-    const [rows, rooms, budgets, latest] = await Promise.all([
+    const [rows, rooms, budgets, latest, options] = await Promise.all([
       Asset.aggregate([
         { $match: filter },
         { $group: { _id: { budget: "$budget", status: "$status" }, n: { $sum: 1 } } }
@@ -34,7 +49,8 @@ exports.summary = async (req, res) => {
         { $limit: 10 }
       ]),
       Budget.find().lean(),
-      Inspection.findOne().sort({ createdAt: -1 }).lean()
+      Inspection.findOne().sort({ createdAt: -1 }).lean(),
+      filterOptions()
     ]);
 
     const activeByName = new Map(budgets.map((b) => [b.name, b.active]));
@@ -81,14 +97,15 @@ exports.summary = async (req, res) => {
       groups,
       totals,
       byRoom: rooms.map((r) => ({ room: r._id || "ไม่ระบุ", count: r.count })),
-      inspection
+      inspection,
+      options
     });
   } catch (error) {
     fail(res, 500, error.message);
   }
 };
 
-// GET /api/reports/detail?budget=&room=&status=
+// GET /api/reports/detail?budget=&room=&year=&status=
 // ตารางรายละเอียดทุกชิ้น + ผลตรวจในรอบล่าสุด
 exports.detail = async (req, res) => {
   try {

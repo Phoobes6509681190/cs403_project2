@@ -37,6 +37,9 @@ function buildFilter(query = {}, user) {
   if (room) filter["location.label"] = String(room);
   if (budget) filter.budget = String(budget);
   if (holder) filter.holderName = String(holder);
+  // ?year=57 — ปีงบประมาณจากเลขครุภัณฑ์ (ใช้กับ "ลบทั้งหมดของปีนั้น")
+  const year = parseInt(query.year, 10);
+  if (Number.isFinite(year)) filter["codeParts.year"] = year;
   // ?holderUser=me — ครุภัณฑ์ที่ฉันถือครอง (หน้าโปรไฟล์)
   if (query.holderUser === "me" && user) filter.holderUser = user.userId;
   // ?qr=unprinted — เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR (เช่น ของที่เพิ่ง import เข้ามา)
@@ -59,13 +62,14 @@ exports.getAssets = async (req, res) => {
 
     const filter = buildFilter(req.query, req.user);
 
-    const [items, total, rooms, budgets, qrUnprinted] = await Promise.all([
+    const [items, total, rooms, budgets, qrUnprinted, years] = await Promise.all([
       Asset.find(filter).sort(req.query.sort === "-createdAt" ? { createdAt: -1, _id: -1 } : { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
         .skip((page - 1) * perPage).limit(perPage).lean(),
       Asset.countDocuments(filter),
       Asset.distinct("location.label", { isDeleted: false }),
       Asset.distinct("budget", { isDeleted: false }),
-      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $ne: "transferred" } })
+      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $ne: "transferred" } }),
+      Asset.distinct("codeParts.year", { isDeleted: false })
     ]);
 
     res.json({
@@ -76,7 +80,8 @@ exports.getAssets = async (req, res) => {
       perPage,
       rooms: rooms.filter(Boolean).sort(),
       budgets: budgets.filter(Boolean).sort(),
-      qrUnprinted
+      qrUnprinted,
+      years: years.filter((y) => Number.isFinite(y)).sort((a, b) => b - a)
     });
   } catch (error) {
     fail(res, 500, error.message);

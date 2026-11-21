@@ -15,13 +15,16 @@ export default function ReportPage() {
   const [detail, setDetail] = useState({ items: [] })
   const [budgets, setBudgets] = useState([])
   const [budget, setBudget] = useState('')
+  const [year, setYear] = useState('')
+  const [room, setRoom] = useState('')
+  const [status, setStatus] = useState('') // กรองเฉพาะตารางรายละเอียด
   const [state, setState] = useState('loading')
 
   const load = async () => {
     setState('loading')
     try {
-      const params = { budget: budget || undefined }
-      const [s, d] = await Promise.all([getReportSummary(params), getReportDetail(params)])
+      const params = { budget: budget || undefined, year: year || undefined, room: room || undefined }
+      const [s, d] = await Promise.all([getReportSummary(params), getReportDetail({ ...params, status: status || undefined })])
       setSummary(s)
       setDetail(d)
       setState('ready')
@@ -37,14 +40,14 @@ export default function ReportPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budget])
+  }, [budget, year, room, status])
 
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดรายงานไม่สำเร็จ" />
 
   const { total, byStatus, byRoom, groups, totals, inspection } = summary
-  const year = inspection?.budgetYear
-  const title = `รายงานผลการตรวจสอบพัสดุประจำปี สาขาวิทยาการคอมพิวเตอร์${year ? ` ปีงบประมาณ ${year}` : ''}${budget ? ` (${budget})` : ''}`
+  const filterNote = [budget, year && `ครุภัณฑ์ปี ${year}`, room].filter(Boolean).join(' · ')
+  const title = `รายงานผลการตรวจสอบพัสดุประจำปี สาขาวิทยาการคอมพิวเตอร์${inspection?.budgetYear ? ` ปีงบประมาณ ${inspection.budgetYear}` : ''}${filterNote ? ` (${filterNote})` : ''}`
 
   const handleExcel = () => {
     try {
@@ -70,6 +73,18 @@ export default function ReportPage() {
           <option value="">ทุกงบประมาณ</option>
           {budgets.map((b) => (
             <option key={b.abbr} value={b.name}>{b.name}{b.active ? '' : ' (งบเดิม)'}</option>
+          ))}
+        </select>
+        <select value={year} onChange={(e) => setYear(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
+          <option value="">ทุกปีงบ</option>
+          {(summary.options?.years || []).map((y) => (
+            <option key={y} value={y}>ปี {y}</option>
+          ))}
+        </select>
+        <select value={room} onChange={(e) => setRoom(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px] max-w-[200px]">
+          <option value="">ทุกห้อง</option>
+          {(summary.options?.rooms || []).map((r) => (
+            <option key={r} value={r}>{r}</option>
           ))}
         </select>
         <Btn onClick={handleExcel}>
@@ -163,7 +178,15 @@ export default function ReportPage() {
       </div>
 
       <Card className="p-4 print:shadow-none print:border-0 print:p-0 print:break-before-page">
-        <h3 className="font-semibold mb-3">ตารางรายละเอียดทั้งหมด ({nf(detail.items.length)} รายการ)</h3>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <h3 className="font-semibold mr-auto">ตารางรายละเอียดทั้งหมด ({nf(detail.items.length)} รายการ)</h3>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-1.5 text-[13px] print:hidden">
+            <option value="">ทุกสถานะ</option>
+            {Object.entries(STATUS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+        </div>
         <div className="scroll-x">
           <table className="w-full min-w-[900px] text-[13px] print:text-[10px] print:min-w-0">
             <thead>

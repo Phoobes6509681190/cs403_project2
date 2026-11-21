@@ -10,16 +10,21 @@ export function Card({ className = '', children, style }) {
   )
 }
 
-export function Btn({ variant = 'ghost', className = '', children, disabled, ...rest }) {
+// ปุ่มกลางของทั้งเว็บ: มี hover / กดแล้วยุบ / โฟกัสด้วยคีย์บอร์ดเห็นกรอบ
+// ป้ายที่ขึ้นต้นด้วย "กำลัง..." (เช่น กำลังบันทึก...) จะมีไอคอนหมุนให้อัตโนมัติ หรือส่ง loading เอง
+const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map(textOf).join('') : '')
+export function Btn({ variant = 'ghost', className = '', children, disabled, loading, ...rest }) {
+  const busy = loading ?? textOf(children).trim().startsWith('กำลัง')
   const base =
-    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100'
   const styles = {
-    primary: 'bg-brand text-white hover:bg-brandink',
-    ghost: 'border border-line bg-surface text-ink hover:border-ink/40',
-    danger: 'bg-bad text-white hover:opacity-90',
+    primary: 'bg-brand text-white hover:bg-brandink hover:shadow-card',
+    ghost: 'border border-line bg-surface text-ink hover:border-ink/40 hover:bg-surface2',
+    danger: 'bg-bad text-white hover:opacity-90 hover:shadow-card',
   }
   return (
-    <button className={`${base} ${styles[variant]} ${className}`} disabled={disabled} {...rest}>
+    <button className={`${base} ${styles[variant]} ${className}`} disabled={disabled || busy} aria-busy={busy || undefined} {...rest}>
+      {busy && <Spinner className="w-4 h-4" />}
       {children}
     </button>
   )
@@ -63,6 +68,7 @@ export function Field({ label, required, hint, error, className = '', ...rest })
         className={`mt-1.5 w-full rounded-xl border bg-surface px-3 py-2.5 text-ink placeholder:text-faint focus:border-brand read-only:bg-surface2 read-only:text-muted ${
           error ? 'border-bad' : 'border-line'
         }`}
+        required={required}
         {...rest}
       />
       {hint && !error && <p className="mt-1 text-[11px] text-faint">{hint}</p>}

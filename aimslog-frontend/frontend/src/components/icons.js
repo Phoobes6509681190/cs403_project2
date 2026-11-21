@@ -25,6 +25,10 @@ export const ICONS = {
     { tag: 'path', d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z' },
     { tag: 'path', d: 'M14 3v5h5' },
   ],
+  eye: [
+    { tag: 'path', d: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z' },
+    { tag: 'circle', cx: 12, cy: 12, r: 3 },
+  ],
   search: [
     { tag: 'circle', cx: 11, cy: 11, r: 7 },
     { tag: 'path', d: 'm20 20-3.5-3.5' },

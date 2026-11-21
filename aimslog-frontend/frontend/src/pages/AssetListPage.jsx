@@ -31,6 +31,7 @@ export default function AssetListPage() {
   const [status, setStatus] = useState('')
   const [room, setRoom] = useState('')
   const [budget, setBudget] = useState('')
+  const [year, setYear] = useState('')
   const [selected, setSelected] = useState([]) // id ที่ติ๊กไว้ (พิมพ์ QR / ลบ) — จำข้ามหน้าได้
   const [allMatching, setAllMatching] = useState(false) // เลือก "ทุกรายการตามตัวกรอง" (ไม่ใช่แค่หน้านี้)
   const toggleSel = (id) => {
@@ -58,7 +59,7 @@ export default function AssetListPage() {
     if (canEdit) getUsers({ active: 1 }).then((d) => setUsers(d.items || [])).catch(() => {})
   }, [canEdit])
 
-  useEffect(() => setAllMatching(false), [debouncedQ, status, room, budget])
+  useEffect(() => setAllMatching(false), [debouncedQ, status, room, budget, year])
 
   const [toDelete, setToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -71,6 +72,7 @@ export default function AssetListPage() {
         status: status || undefined,
         room: room || undefined,
         budget: budget || undefined,
+        year: year || undefined,
         page,
         perPage: PER_PAGE,
       })
@@ -84,11 +86,11 @@ export default function AssetListPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ, status, room, budget, page])
+  }, [debouncedQ, status, room, budget, year, page])
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedQ, status, room, budget])
+  }, [debouncedQ, status, room, budget, year])
 
   // มี ตึก/ชั้น/ห้อง อย่างน้อยหนึ่งช่อง -> "ระบุสถานที่ใช้งาน" สร้างจาก 3 ช่องนี้เสมอ (สองค่าไม่มีทางไม่ตรงกัน)
   // ไม่มีเลยสักช่อง -> พิมพ์เองได้ เช่น "ห้องพักอาจารย์"
@@ -161,6 +163,7 @@ export default function AssetListPage() {
     status: status || undefined,
     room: room || undefined,
     budget: budget || undefined,
+    year: year || undefined,
   })
   const selCount = allMatching ? result.total || 0 : selected.length
 
@@ -250,6 +253,12 @@ export default function AssetListPage() {
               <option key={b} value={b}>{b}</option>
             ))}
           </select>
+          <select value={year} onChange={(e) => setYear(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
+            <option value="">ทุกปีงบ</option>
+            {(result.years || []).map((y) => (
+              <option key={y} value={y}>ปี {y}</option>
+            ))}
+          </select>
 
           <span className="text-[12px] text-faint ml-auto">พบ {nf(result.total || 0)} รายการ</span>
         </div>
@@ -280,7 +289,7 @@ export default function AssetListPage() {
           <>
             <div className="scroll-x">
               {/* คอลัมน์เรียงตามไฟล์ Excel ของคณะ + ผู้ถือครอง */}
-              <table className="w-full min-w-[1150px] text-[13px]">
+              <table className="w-full min-w-[1350px] text-[13px]">
                 <thead>
                   <tr className="text-[12px] text-muted border-b border-line">
                     {canEdit && (
@@ -301,7 +310,7 @@ export default function AssetListPage() {
                         />
                       </th>
                     )}
-                    {['ลำดับ', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
+                    {['ลำดับ', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'รุ่น', 'ประเภท', 'ผู้ถือครอง', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -325,14 +334,15 @@ export default function AssetListPage() {
                       </td>
                       <td className="py-3 pr-3">
                         <p className="font-medium">{a.name}</p>
-                        {a.model && <p className="text-[11px] text-faint">{a.model}</p>}
                       </td>
                       <td className="py-3 pr-3 text-muted">{a.brand || '—'}</td>
+                      <td className="py-3 pr-3 text-muted">{a.model || '—'}</td>
+                      <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.cat || '—'}</td>
                       <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.owner || '—'}</td>
                       <td className="py-3 pr-1">
                         <div className="flex items-center gap-1 justify-end text-faint">
                           <Link to={`/assets/${a.id}`} className="p-1.5 rounded-lg hover:text-brand hover:bg-brandsoft" title="ดูรายละเอียด">
-                            <Icon name="history" />
+                            <Icon name="eye" />
                           </Link>
                           {canEdit && (
                             <>
@@ -388,21 +398,19 @@ export default function AssetListPage() {
           <Field label="ชื่อครุภัณฑ์" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Field label="รุ่น" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
           <Field label="ยี่ห้อ" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-          <Field label="ประเภท" value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })} />
-          <Field label="ตึก/อาคาร" placeholder="เช่น บร.2" value={form.building} onChange={(e) => setLocPart('building', e.target.value)} />
-          <div className="grid grid-cols-2 gap-3">
+          <Field label="ประเภท" required className="col-span-2" placeholder="เช่น ครุภัณฑ์คอมพิวเตอร์" value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })} />
+          <div className="col-span-2 grid grid-cols-3 gap-3">
+            <Field label="ตึก/อาคาร" required placeholder="เช่น บร.2" value={form.building} onChange={(e) => setLocPart('building', e.target.value)} />
             <Field label="ชั้น" value={form.floor} onChange={(e) => setLocPart('floor', e.target.value)} />
             <Field label="ห้อง" value={form.roomNo} onChange={(e) => setLocPart('roomNo', e.target.value)} />
           </div>
           <Field
-            label="ระบุ สถานที่ใช้งาน"
+            label="ระบุ สถานที่ใช้งาน (ระบบสร้างจากตึก/ชั้น/ห้อง)"
             className="col-span-2"
             value={form.room}
-            readOnly={hasParts(form)}
-            placeholder="เช่น ห้องพักอาจารย์"
-            onChange={(e) => setForm({ ...form, room: e.target.value })}
+            readOnly
+            tabIndex={-1}
           />
-          <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
           <SelectField
             label="บัญชีผู้ถือครอง (ถ้ามี)"
             value={form.holderUser || ''}
@@ -412,6 +420,7 @@ export default function AssetListPage() {
             }}
             options={[{ value: '', label: '— ไม่ผูกบัญชี —' }, ...users.map((u) => ({ value: u.id, label: u.name || u.username }))]}
           />
+          <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
           <Field label="งบประมาณ" value={form.budget} placeholder="เว้นว่าง = ดูจากเลขครุภัณฑ์" onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           <Field label="ราคา (บาท)" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           <SelectField
