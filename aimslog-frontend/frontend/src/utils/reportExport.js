@@ -11,6 +11,7 @@ export const SUMMARY_COLUMNS = [
   { key: 'missing', label: 'ไม่พบพัสดุตามทะเบียน' },
   { key: 'total', label: 'รวม' },
   { key: 'transferred', label: 'ตัดโอน (ไม่นับรวม)' },
+  { key: 'dataIssue', label: 'ข้อมูลต้องตรวจสอบ (ไม่นับรวม)' },
 ]
 
 const buddhistYear = (y) => (y ? (y < 100 ? 2500 + y : y) : '')

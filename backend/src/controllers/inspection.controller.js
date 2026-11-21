@@ -4,6 +4,7 @@ const AssetHistory = require("../models/AssetHistory");
 const Inspection = require("../models/Inspection");
 const InspectionItem = require("../models/InspectionItem");
 const User = require("../models/User");
+const { NOT_COUNTED } = require("../constants/status");
 const {
   INSPECT_RESULTS, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf
 } = require("../services/inspection.service");
@@ -146,7 +147,7 @@ exports.create = async (req, res) => {
     if (!committee.length) return fail(res, 400, "เลือกกรรมการอย่างน้อย 1 คน");
 
     // ตรวจทุกชิ้นที่ยังอยู่ในความดูแลของสาขา (ไม่รวมที่ตัดโอนไปแล้ว)
-    const assets = await Asset.find({ isDeleted: false, status: { $ne: "transferred" } }).lean();
+    const assets = await Asset.find({ isDeleted: false, status: { $nin: NOT_COUNTED } }).lean();
     if (!assets.length) return fail(res, 400, "ยังไม่มีครุภัณฑ์ในระบบ");
 
     const inspection = await Inspection.create({

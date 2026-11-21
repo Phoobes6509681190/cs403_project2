@@ -17,6 +17,7 @@ const FIELDS = [
   { key: "category", label: "ประเภท", aliases: ["ประเภท", "ประเภท (FSN)", "หมวด"] },
   { key: "brand", label: "ยี่ห้อ", aliases: ["ยี่ห้อ"] },
   { key: "model", label: "รุ่น", aliases: ["รุ่น", "ยี่ห้อ/รุ่น"] },
+  { key: "budgetSource", label: "แหล่งเงิน (งบประมาณ)", aliases: ["แหล่งเงิน", "แหล่งงบประมาณ", "งบประมาณ"] },
   { key: "price", label: "ราคา", aliases: ["ราคา", "ราคาต่อหน่วย", "มูลค่าต้นทุนที่ได้มา", "มูลค่า"] },
   { key: "noteBroken", label: "หมายเหตุ: ใช้งานไม่ได้", aliases: ["ระบุสภาพครุภัณฑ์เฉพาะที่ใช้งานไม่ได้"] },
   { key: "noteMissing", label: "หมายเหตุ: สูญหาย/ไม่พบ", aliases: ["ระบุสภาพครุภัณฑ์เฉพาะที่สูญหาย", "หมายเหตุ"] }
@@ -63,8 +64,11 @@ function resolveMapping(headers, dataRows, mapping = {}) {
     if (Object.prototype.hasOwnProperty.call(mapping, f.key)) {
       const want = normalizeLabel(mapping[f.key]);
       const c = want ? headers.findIndex((h) => normalizeLabel(h) === want) : -1;
-      colOf[f.key] = c; // "" = ผู้ใช้เลือก "ไม่มีในไฟล์"
-      continue;
+      // "" = ผู้ใช้เลือก "ไม่มีในไฟล์" / ชีตนี้ไม่มีคอลัมน์ที่เลือก -> ใช้ชื่อที่ระบบรู้จักแทน (แต่ละชีตอาจตั้งชื่อต่างกัน)
+      if (!want || c !== -1) {
+        colOf[f.key] = c;
+        continue;
+      }
     }
     let best = -1;
     headers.forEach((h, c) => {
@@ -76,37 +80,55 @@ function resolveMapping(headers, dataRows, mapping = {}) {
 }
 
 // อ่านไฟล์ Excel -> แถวที่แปลงเป็นรูปแบบเดียวกันแล้ว (ยังไม่แตะ DB — ทดสอบแยกได้)
-//   opts.sheet   = ชื่อชีตที่จะอ่าน (ไม่ระบุ = ชีตแรกที่หาหัวตารางเจอ ข้ามชีตสรุป)
-//   opts.mapping = { field: "ชื่อหัวคอลัมน์ในไฟล์" | "" } ที่ผู้ใช้เลือกเอง
+//   opts.sheets  = ชื่อชีตที่จะนำเข้า (ไม่ระบุ = ทุกชีตที่หาหัวตารางเจอ ข้ามชีตสรุปให้เอง)
+//   opts.sheet   = ชีตเดียว (รูปแบบเดิม)
+//   opts.mapping = { field: "ชื่อหัวคอลัมน์ในไฟล์" | "" } ที่ผู้ใช้เลือกเอง (ใช้กับทุกชีต เทียบตามชื่อหัวคอลัมน์)
+// แถวที่เลขและชื่อซ้ำกับชีตก่อนหน้า จะถูกนับเป็น "ซ้ำในไฟล์" ตอนเทียบ (กันชีตที่เป็นมุมมองซ้อนกัน)
 function parseWorkbook(buffer, opts = {}) {
   const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
   const mapping = opts.mapping && typeof opts.mapping === "object" ? opts.mapping : {};
-  const gridOf = (name) => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", raw: false });
+  const wanted = (Array.isArray(opts.sheets) ? opts.sheets : opts.sheet ? [opts.sheet] : []).filter((n) => wb.SheetNames.includes(n));
+  const names = wanted.length ? wanted : wb.SheetNames;
 
-  let sheetName = null;
-  let grid = null;
-  let headerIdx = -1;
-  const candidates = opts.sheet && wb.SheetNames.includes(opts.sheet) ? [opts.sheet] : wb.SheetNames;
-  for (const name of candidates) {
-    const g = gridOf(name);
-    const idx = findHeaderRow(g, mapping);
-    if (idx !== -1) {
-      sheetName = name;
-      grid = g;
-      headerIdx = idx;
-      break;
-    }
+  const sheetInfo = [];
+  const parsed = [];
+  for (const name of names) {
+    const r = parseSheet(wb, name, mapping);
+    sheetInfo.push({ name, ok: !!r, rows: r ? r.rows.length : 0, headerRow: r ? r.headerRow : null });
+    if (r) parsed.push(r);
   }
-  if (headerIdx === -1) {
+  if (!parsed.length) {
     const err = new Error(
-      opts.sheet
-        ? `ไม่พบหัวตารางในชีต "${opts.sheet}" — เลือกคอลัมน์เลขครุภัณฑ์และชื่อครุภัณฑ์ หรือเลือกชีตอื่น`
+      wanted.length
+        ? `ไม่พบหัวตารางในชีตที่เลือก — เลือกคอลัมน์เลขครุภัณฑ์และชื่อครุภัณฑ์ หรือเลือกชีตอื่น`
         : "ไม่พบหัวตาราง — ต้องมีคอลัมน์เลขครุภัณฑ์ (เช่น \"รหัสสินทรัพย์อ้างอิง\" หรือ \"Ref No. 1\") และ \"ชื่อสินทรัพย์\""
     );
     err.status = 400;
     err.sheets = wb.SheetNames;
     throw err;
   }
+
+  // หัวคอลัมน์รวมทุกชีต (ตามลำดับที่เจอ) ให้หน้าเว็บใช้ทำ dropdown
+  const headers = [...new Set(parsed.flatMap((p) => p.headers.filter(Boolean)))];
+  const first = parsed[0];
+  return {
+    sheets: wb.SheetNames,
+    selectedSheets: parsed.map((p) => p.name),
+    sheetInfo,
+    sheet: first.name,
+    headerRow: first.headerRow,
+    headers,
+    mapping: first.mapping,
+    unknownColumns: [...new Set(parsed.flatMap((p) => p.unknownColumns))],
+    rows: parsed.flatMap((p) => p.rows)
+  };
+}
+
+// อ่านชีตเดียว -> null ถ้าหาหัวตารางไม่เจอ (เช่น ชีตสรุป)
+function parseSheet(wb, name, mapping) {
+  const grid = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", raw: false });
+  const headerIdx = findHeaderRow(grid, mapping);
+  if (headerIdx === -1) return null;
 
   const headers = grid[headerIdx].map(cell);
   const dataRows = grid.slice(headerIdx + 1);
@@ -130,6 +152,8 @@ function parseWorkbook(buffer, opts = {}) {
     });
     const d = Object.fromEntries(FIELDS.map((f) => [f.key, val(r, f.key)]));
     const note = [d.noteBroken, d.noteMissing].filter(Boolean).join(" / ");
+    // งบประมาณยึดคอลัมน์ "แหล่งเงิน" (เช่น "30 - งบ มธ." -> "งบ มธ.") ถ้าไม่มีจึงดูจากตัวย่อในเลขครุภัณฑ์
+    const budget = d.budgetSource.replace(/^\s*\d+\s*-\s*/, "").trim();
 
     const errors = [];
     if (!d.assetCode) errors.push("ไม่มีเลขครุภัณฑ์");
@@ -141,6 +165,8 @@ function parseWorkbook(buffer, opts = {}) {
 
     rows.push({
       row: i + 1, // เลขแถวตามที่เห็นใน Excel
+      sheet: name,
+      ref: `${name}!${i + 1}`, // ไม่ซ้ำกันข้ามชีต
       raw,
       errors,
       budgetAbbr: parts?.budgetAbbr || null,
@@ -155,6 +181,7 @@ function parseWorkbook(buffer, opts = {}) {
         category: d.category || undefined,
         holderName: d.holderName || undefined,
         note: note || undefined,
+        budget: budget || undefined,
         price: Number.isFinite(price) ? price : undefined,
         location: {
           building: d.building || undefined,
@@ -167,7 +194,7 @@ function parseWorkbook(buffer, opts = {}) {
   }
 
   const usedMapping = Object.fromEntries(FIELDS.map((f) => [f.key, colOf[f.key] >= 0 ? headers[colOf[f.key]] : ""]));
-  return { sheets: wb.SheetNames, sheet: sheetName, headerRow: headerIdx + 1, headers, mapping: usedMapping, unknownColumns, rows };
+  return { name, headerRow: headerIdx + 1, headers, mapping: usedMapping, unknownColumns, rows };
 }
 
 module.exports = { parseWorkbook, COLUMNS, FIELDS };

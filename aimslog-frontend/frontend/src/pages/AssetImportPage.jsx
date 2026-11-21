@@ -18,7 +18,7 @@ export default function AssetImportPage() {
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
   // ชีตและการจับคู่คอลัมน์ — ระบบเดาให้ครั้งแรก ผู้ใช้แก้ได้ แล้วตรวจไฟล์ใหม่ตามที่เลือก
-  const [sheet, setSheet] = useState('')
+  const [sheets, setSheets] = useState([]) // ชีตที่เลือกนำเข้า (ระบบเลือกทุกชีตที่มีตารางให้ก่อน)
   const [mapping, setMapping] = useState(null)
   const [sheetError, setSheetError] = useState(null) // { message, sheets } เมื่อหาหัวตารางไม่เจอ
 
@@ -29,7 +29,7 @@ export default function AssetImportPage() {
     setBudgetMapping({})
     setShowMissing(false)
     setResult(null)
-    setSheet('')
+    setSheets([])
     setMapping(null)
     setSheetError(null)
   }
@@ -41,7 +41,7 @@ export default function AssetImportPage() {
     try {
       const data = await previewImport(f, opts)
       setPreview(data)
-      setSheet(data.sheet)
+      setSheets(data.selectedSheets || [data.sheet])
       setMapping(data.mapping)
       setStatusMapping(Object.fromEntries(data.unknownStatuses.map((s) => [s.label, ''])))
       setBudgetMapping(Object.fromEntries(data.unknownBudgets.map((b) => [b.abbr, ''])))
@@ -50,7 +50,7 @@ export default function AssetImportPage() {
       if (d?.sheets?.length) {
         setPreview(null)
         setSheetError({ message: d.message, sheets: d.sheets })
-        if (opts.sheet) setSheet(opts.sheet)
+        if (opts.sheets) setSheets(opts.sheets)
       } else {
         toast.error(d?.message || 'อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv')
         reset()
@@ -60,14 +60,19 @@ export default function AssetImportPage() {
     }
   }
 
-  const changeSheet = (name) => {
-    setMapping(null)
-    runPreview(file, { sheet: name })
+  const toggleSheet = (name) => {
+    const next = sheets.includes(name) ? sheets.filter((s) => s !== name) : [...sheets, name]
+    if (!next.length) return
+    // คงลำดับตามไฟล์ (แถวซ้ำข้ามชีตนับจากชีตที่มาก่อน)
+    const all = preview?.sheets || sheetError?.sheets || []
+    const ordered = all.filter((s) => next.includes(s))
+    setSheets(ordered)
+    runPreview(file, { sheets: ordered, mapping })
   }
   const changeColumn = (field, header) => {
     const next = { ...mapping, [field]: header }
     setMapping(next)
-    runPreview(file, { sheet, mapping: next })
+    runPreview(file, { sheets, mapping: next })
   }
 
   const onFileChange = async (e) => {
@@ -86,7 +91,7 @@ export default function AssetImportPage() {
   const confirmImport = async () => {
     setImporting(true)
     try {
-      const data = await commitImport(file, { statusMapping, budgetMapping, sheet, mapping })
+      const data = await commitImport(file, { statusMapping, budgetMapping, sheets, mapping })
       setResult(data)
       toast.success(`เพิ่มใหม่ ${nf(data.successCount)} · อัปเดต ${nf(data.updatedCount)} รายการ`)
     } catch (err) {
@@ -126,29 +131,52 @@ export default function AssetImportPage() {
       {sheetError && !result && (
         <Card className="p-4">
           <p className="text-[13px] text-bad mb-3">{sheetError.message}</p>
-          <SelectField
-            label="เลือกชีตที่มีรายการครุภัณฑ์"
-            value={sheet}
-            onChange={(e) => changeSheet(e.target.value)}
-            options={[{ value: '', label: '— เลือกชีต —' }, ...sheetError.sheets.map((s) => ({ value: s, label: s }))]}
-          />
+          <p className="text-[13px] text-muted mb-2">เลือกชีตที่มีรายการครุภัณฑ์</p>
+          <div className="flex flex-wrap gap-2">
+            {sheetError.sheets.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => runPreview(file, { sheets: [s] })}
+                className="rounded-full border border-line px-3 py-1.5 text-[13px] hover:border-brand hover:bg-brandsoft"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </Card>
       )}
 
       {preview && mapping && !result && (
         <Card className="p-4">
-          <div className="flex flex-wrap items-end gap-3 mb-3">
-            <h3 className="font-semibold mr-auto">ชีตและคอลัมน์ในไฟล์</h3>
-            {preview.sheets.length > 1 && (
-              <SelectField
-                label="ชีต"
-                value={sheet}
-                disabled={checking}
-                onChange={(e) => changeSheet(e.target.value)}
-                options={preview.sheets.map((s) => ({ value: s, label: s }))}
-              />
-            )}
-          </div>
+          <h3 className="font-semibold mb-2">ชีตและคอลัมน์ในไฟล์</h3>
+          {preview.sheets.length > 1 && (
+            <div className="mb-4">
+              <p className="text-[13px] text-muted mb-2">ชีตที่นำเข้า (แถวที่ซ้ำกับชีตก่อนหน้าจะถูกข้าม)</p>
+              <div className="flex flex-wrap gap-2">
+                {preview.sheets.map((s) => {
+                  const info = preview.sheetInfo?.find((x) => x.name === s)
+                  const on = sheets.includes(s)
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={checking}
+                      onClick={() => toggleSheet(s)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
+                        on ? 'border-brand bg-brandsoft text-ink' : 'border-line text-muted hover:border-ink/40'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded border ${on ? 'bg-brand border-brand' : 'border-line'}`} />
+                      {s}
+                      {on && info?.ok && <span className="text-faint tabular-nums">{nf(info.rows)} แถว</span>}
+                      {on && info && !info.ok && <span className="text-bad">ไม่พบตาราง</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {preview.fields.map((f) => (
               <SelectField
@@ -294,8 +322,8 @@ export default function AssetImportPage() {
                       invalid: <span className="text-bad">{r.errors.join(', ')}</span>,
                     }[r.kind]
                     return (
-                      <tr key={r.row} className={`border-b border-line last:border-0 ${r.kind === 'dup' || r.kind === 'invalid' ? 'opacity-50' : ''}`}>
-                        <td className="py-2 pr-3 text-faint">{r.row}</td>
+                      <tr key={`${r.sheet}!${r.row}`} className={`border-b border-line last:border-0 ${r.kind === 'dup' || r.kind === 'invalid' ? 'opacity-50' : ''}`}>
+                        <td className="py-2 pr-3 text-faint whitespace-nowrap">{sheets.length > 1 && <span className="text-[11px]">{r.sheet} · </span>}{r.row}</td>
                         {cell('building', r.building, 'whitespace-nowrap')}
                         {cell('floor', r.floor)}
                         {cell('room', r.room)}
@@ -369,7 +397,7 @@ function RowTable({ title, rows }) {
           <tbody>
             {rows.map((f, i) => (
               <tr key={i} className="border-b border-line last:border-0">
-                <td className="py-2 pr-3">{f.row}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{f.sheet && <span className="text-[11px] text-faint">{f.sheet} · </span>}{f.row}</td>
                 <td className="py-2 pr-3 text-bad">{f.reason}</td>
               </tr>
             ))}

@@ -101,3 +101,32 @@ test("parseWorkbook: ไฟล์คณะปี 68 — ข้ามชีตส
   assert.strictEqual(m.rows[0].data.holderName, undefined);
   assert.throws(() => parseWorkbook(buf, { sheet: "SUMMARY" }), /ไม่พบหัวตาราง/);
 });
+
+test("parseWorkbook: หลายชีต — รวมทุกชีตที่มีหัวตาราง, แถวซ้ำข้ามชีตนับเป็นซ้ำ, งบจากแหล่งเงิน, สภาพปี 68", () => {
+  const { classify } = require("../src/services/importCompare");
+  const H = ["Ref No. 1", "ชื่อสินทรัพย์", "สภาพ", "แหล่งเงิน"];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["สรุป"]]), "SUMMARY");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([H, ["วทท-8พ-59-1/2", "เก้าอี้", "เสื่อมสภาพ", "30 - งบ มธ."], ["วทท-8พ-59-2/2", "เก้าอี้", "จำหน่ายแล้ว", "30 - งบ มธ."]]), "ต่ำกว่า 10000");
+  // ชีตงบพิเศษเป็นมุมมองซ้อน: แถวแรกซ้ำกับชีตก่อน, แถวสองเป็นของใหม่
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([H, ["วทท-8พ-59-1/2", "เก้าอี้", "เสื่อมสภาพ", "30 - งบ มธ."], ["วทท-8พ-60-1/1", "โต๊ะ", "ข้อมูลซ้ำ", ""]]), "งบพิเศษ");
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+  const r = parseWorkbook(buf);
+  assert.deepStrictEqual(r.selectedSheets, ["ต่ำกว่า 10000", "งบพิเศษ"]);
+  assert.strictEqual(r.rows.length, 4);
+  assert.strictEqual(new Set(r.rows.map((x) => x.ref)).size, 4, "ref ไม่ซ้ำข้ามชีต");
+  assert.strictEqual(r.rows[0].statusKey, "unneeded", "เสื่อมสภาพ = หมดความจำเป็น");
+  assert.strictEqual(r.rows[1].statusKey, "transferred", "จำหน่ายแล้ว = ตัดโอน");
+  assert.strictEqual(r.rows[3].statusKey, "duplicate", "ข้อมูลซ้ำ เก็บตามไฟล์");
+  assert.strictEqual(r.rows[0].data.budget, "งบ มธ.");
+  assert.strictEqual(r.rows[3].data.budget, undefined, "ไม่มีแหล่งเงิน -> ไปใช้ตัวย่อในเลขแทน");
+
+  const c = classify(r.rows, [], (x) => x.statusKey);
+  assert.strictEqual(c.fresh.length, 3);
+  assert.strictEqual(c.dupInFile.length, 1);
+  assert.strictEqual(c.dupInFile[0].sheet, "งบพิเศษ");
+
+  const only = parseWorkbook(buf, { sheets: ["งบพิเศษ"] });
+  assert.deepStrictEqual(only.selectedSheets, ["งบพิเศษ"]);
+});

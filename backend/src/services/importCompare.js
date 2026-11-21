@@ -1,5 +1,5 @@
 // เทียบแถวจากไฟล์ Excel กับข้อมูลเดิมในระบบ (ไม่แตะ DB — ทดสอบแยกได้)
-const { STATUSES } = require("../constants/status");
+const { STATUSES, NOT_COUNTED } = require("../constants/status");
 
 // ฟิลด์ที่เทียบ — เลือกเฉพาะที่เปลี่ยนได้จริงในชีวิตของครุภัณฑ์
 const COMPARE_FIELDS = [
@@ -13,7 +13,8 @@ const COMPARE_FIELDS = [
   { key: "brand", label: "ยี่ห้อ" },
   { key: "model", label: "รุ่น" },
   { key: "category", label: "ประเภท" },
-  { key: "note", label: "หมายเหตุ" }
+  { key: "note", label: "หมายเหตุ" },
+  { key: "budget", label: "งบประมาณ" }
 ];
 
 const norm = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
@@ -94,7 +95,7 @@ function classify(rows, assets, resolveStatus) {
   }
 
   // ในระบบแต่ไม่อยู่ในไฟล์ (ไม่นับที่ตัดโอนแล้ว เพราะคาดว่าไม่อยู่ในไฟล์ของคณะอยู่แล้ว)
-  out.missing = assets.filter((a) => !out.matchedIds.has(String(a._id)) && a.status !== "transferred");
+  out.missing = assets.filter((a) => !out.matchedIds.has(String(a._id)) && !NOT_COUNTED.includes(a.status));
   return out;
 }
 

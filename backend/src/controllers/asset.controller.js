@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Asset = require("../models/Asset");
 const AssetHistory = require("../models/AssetHistory");
-const { STATUS_KEYS } = require("../constants/status");
+const { STATUS_KEYS, NOT_COUNTED } = require("../constants/status");
 const escapeRegex = require("../utils/escapeRegex");
 const { getBudgetMap, budgetNameFromCode } = require("../services/budget.service");
 const { toAssetDto, fromAssetInput, toHistoryDto } = require("../services/assetDto");
@@ -68,7 +68,7 @@ exports.getAssets = async (req, res) => {
       Asset.countDocuments(filter),
       Asset.distinct("location.label", { isDeleted: false }),
       Asset.distinct("budget", { isDeleted: false }),
-      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $ne: "transferred" } }),
+      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $nin: NOT_COUNTED } }),
       Asset.distinct("codeParts.year", { isDeleted: false })
     ]);
 

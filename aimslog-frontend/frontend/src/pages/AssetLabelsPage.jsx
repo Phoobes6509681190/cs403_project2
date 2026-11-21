@@ -1,3 +1,4 @@
+import { STATUS } from '../data/statusConfig'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
@@ -35,7 +36,7 @@ export default function AssetLabelsPage() {
           if (all.length >= data.total || data.items.length === 0) break
         }
         // พิมพ์ชิ้นใหม่: ไม่ต้องพิมพ์ของที่ตัดโอนไปแล้ว
-        setAssets(onlyNew ? all.filter((a) => a.status !== 'transferred') : all)
+        setAssets(onlyNew ? all.filter((a) => STATUS[a.status]?.counted !== false) : all)
       }
       setState('ready')
     } catch {

@@ -125,7 +125,7 @@ export default function ReportPage() {
               <tr className="text-[12px] text-muted border-b border-line print:text-black">
                 <th className="text-left font-medium py-2 pr-3">งบประมาณ</th>
                 {SUMMARY_COLUMNS.map((c) => (
-                  <th key={c.key} className={`text-right font-medium py-2 px-2 ${c.key === 'transferred' ? 'text-faint' : ''}`}>{c.label}</th>
+                  <th key={c.key} className={`text-right font-medium py-2 px-2 ${(c.key === 'transferred' || c.key === 'dataIssue') ? 'text-faint' : ''}`}>{c.label}</th>
                 ))}
               </tr>
             </thead>
@@ -136,7 +136,7 @@ export default function ReportPage() {
                     {g.budget} {!g.active && <span className="text-[11px] text-faint">(งบเดิม)</span>}
                   </td>
                   {SUMMARY_COLUMNS.map((c) => (
-                    <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${c.key === 'total' ? 'font-semibold' : ''} ${c.key === 'transferred' ? 'text-faint' : ''}`}>
+                    <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${c.key === 'total' ? 'font-semibold' : ''} ${(c.key === 'transferred' || c.key === 'dataIssue') ? 'text-faint' : ''}`}>
                       {nf(g[c.key])}
                     </td>
                   ))}
@@ -145,7 +145,7 @@ export default function ReportPage() {
               <tr className="font-semibold">
                 <td className="py-2 pr-3">รวมทั้งหมด</td>
                 {SUMMARY_COLUMNS.map((c) => (
-                  <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${c.key === 'transferred' ? 'text-faint' : ''}`}>{nf(totals[c.key])}</td>
+                  <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${(c.key === 'transferred' || c.key === 'dataIssue') ? 'text-faint' : ''}`}>{nf(totals[c.key])}</td>
                 ))}
               </tr>
             </tbody>

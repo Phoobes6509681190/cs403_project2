@@ -2,7 +2,7 @@ const Asset = require("../models/Asset");
 const Budget = require("../models/Budget");
 const Inspection = require("../models/Inspection");
 const InspectionItem = require("../models/InspectionItem");
-const { STATUS_KEYS } = require("../constants/status");
+const { STATUS_KEYS, NOT_COUNTED, DATA_ISSUE } = require("../constants/status");
 const { toAssetDto } = require("../services/assetDto");
 const { progressOf } = require("../services/inspection.service");
 
@@ -43,7 +43,7 @@ exports.summary = async (req, res) => {
         { $group: { _id: { budget: "$budget", status: "$status" }, n: { $sum: 1 } } }
       ]),
       Asset.aggregate([
-        { $match: { ...filter, status: { $ne: "transferred" } } },
+        { $match: { ...filter, status: { $nin: NOT_COUNTED } } },
         { $group: { _id: "$location.label", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 }
@@ -54,7 +54,8 @@ exports.summary = async (req, res) => {
     ]);
 
     const activeByName = new Map(budgets.map((b) => [b.name, b.active]));
-    const empty = () => Object.fromEntries([...STATUS_KEYS.map((k) => [k, 0]), ["total", 0]]);
+    // dataIssue = รวมสถานะปัญหาข้อมูล 3 แบบ (ข้อมูลซ้ำ / บางส่วนผิด / ไม่ใช่ของหน่วยงาน) แสดงแยก ไม่นับรวม
+    const empty = () => Object.fromEntries([...STATUS_KEYS.map((k) => [k, 0]), ["total", 0], ["dataIssue", 0]]);
     const byBudget = new Map();
     const byStatus = Object.fromEntries(STATUS_KEYS.map((k) => [k, 0]));
 
@@ -63,7 +64,8 @@ exports.summary = async (req, res) => {
       if (!byBudget.has(name)) byBudget.set(name, empty());
       const g = byBudget.get(name);
       g[r._id.status] = (g[r._id.status] || 0) + r.n;
-      if (r._id.status !== "transferred") g.total += r.n;
+      if (!NOT_COUNTED.includes(r._id.status)) g.total += r.n;
+      if (DATA_ISSUE.includes(r._id.status)) g.dataIssue += r.n;
       byStatus[r._id.status] = (byStatus[r._id.status] || 0) + r.n;
     }
 
@@ -93,6 +95,7 @@ exports.summary = async (req, res) => {
       generatedAt: new Date(),
       total: totals.total, // ไม่รวมตัดโอน
       transferred: totals.transferred,
+      dataIssue: totals.dataIssue,
       byStatus,
       groups,
       totals,
