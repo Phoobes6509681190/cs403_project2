@@ -119,8 +119,9 @@ test("parseWorkbook: หลายชีต — รวมทุกชีตที
   assert.strictEqual(r.rows[0].statusKey, "unneeded", "เสื่อมสภาพ = หมดความจำเป็น");
   assert.strictEqual(r.rows[1].statusKey, "transferred", "จำหน่ายแล้ว = ตัดโอน");
   assert.strictEqual(r.rows[3].statusKey, "duplicate", "ข้อมูลซ้ำ เก็บตามไฟล์");
-  assert.strictEqual(r.rows[0].data.budget, "งบ มธ.");
-  assert.strictEqual(r.rows[3].data.budget, undefined, "ไม่มีแหล่งเงิน -> ไปใช้ตัวย่อในเลขแทน");
+  assert.strictEqual(r.rows[0].data.fundSource, "งบ มธ.");
+  assert.strictEqual(r.rows[0].budgetAbbr, "พ", "งบหลักยังมาจากตัวย่อในเลข");
+  assert.strictEqual(r.rows[3].data.fundSource, undefined);
 
   const c = classify(r.rows, [], (x) => x.statusKey);
   assert.strictEqual(c.fresh.length, 3);

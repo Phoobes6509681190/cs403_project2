@@ -20,6 +20,8 @@ const assetSchema = new mongoose.Schema(
     // ชื่องบ เช่น "งบพิเศษ" — ได้จากตาราง budgets ตามตัวย่อในเลขครุภัณฑ์
     // ข้อมูลเก่าเก็บชื่องบเดิมไว้ตามจริง ไม่แปลงเป็นงบใหม่
     budget: { type: String, trim: true, default: "ไม่ระบุ", index: true },
+    // แหล่งเงินตามไฟล์คณะ เช่น "งบ มธ." (ละเอียดน้อยกว่า budget) — ใช้แทน budget เมื่อเลขครุภัณฑ์ไม่มีตัวย่องบ
+    fundSource: { type: String, trim: true },
 
     name: { type: String, required: true, trim: true },
     model: { type: String, trim: true },

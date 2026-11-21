@@ -93,7 +93,7 @@ export default function CommitteePage() {
       {step === 0 && (
         <Card className="p-5 space-y-4">
           <p className="text-[13px] text-muted">
-            รอบนี้จะตรวจครุภัณฑ์ทั้งหมด {nf(itemCount)} ชิ้น (ไม่รวมที่ตัดโอนแล้ว)
+            รอบนี้จะตรวจครุภัณฑ์ทั้งหมด {nf(itemCount)} ชิ้น (ไม่รวมที่จำหน่ายแล้วและข้อมูลต้องตรวจสอบ)
           </p>
           <Field
             label="ปีงบประมาณ (พ.ศ.)"

@@ -17,7 +17,7 @@ const FIELDS = [
   { key: "category", label: "ประเภท", aliases: ["ประเภท", "ประเภท (FSN)", "หมวด"] },
   { key: "brand", label: "ยี่ห้อ", aliases: ["ยี่ห้อ"] },
   { key: "model", label: "รุ่น", aliases: ["รุ่น", "ยี่ห้อ/รุ่น"] },
-  { key: "budgetSource", label: "แหล่งเงิน (งบประมาณ)", aliases: ["แหล่งเงิน", "แหล่งงบประมาณ", "งบประมาณ"] },
+  { key: "budgetSource", label: "แหล่งเงิน", aliases: ["แหล่งเงิน", "แหล่งงบประมาณ", "งบประมาณ"] },
   { key: "price", label: "ราคา", aliases: ["ราคา", "ราคาต่อหน่วย", "มูลค่าต้นทุนที่ได้มา", "มูลค่า"] },
   { key: "noteBroken", label: "หมายเหตุ: ใช้งานไม่ได้", aliases: ["ระบุสภาพครุภัณฑ์เฉพาะที่ใช้งานไม่ได้"] },
   { key: "noteMissing", label: "หมายเหตุ: สูญหาย/ไม่พบ", aliases: ["ระบุสภาพครุภัณฑ์เฉพาะที่สูญหาย", "หมายเหตุ"] }
@@ -152,8 +152,9 @@ function parseSheet(wb, name, mapping) {
     });
     const d = Object.fromEntries(FIELDS.map((f) => [f.key, val(r, f.key)]));
     const note = [d.noteBroken, d.noteMissing].filter(Boolean).join(" / ");
-    // งบประมาณยึดคอลัมน์ "แหล่งเงิน" (เช่น "30 - งบ มธ." -> "งบ มธ.") ถ้าไม่มีจึงดูจากตัวย่อในเลขครุภัณฑ์
-    const budget = d.budgetSource.replace(/^\s*\d+\s*-\s*/, "").trim();
+    // แหล่งเงิน เช่น "30 - งบ มธ." -> "งบ มธ." เก็บแยกไว้ (ละเอียดน้อยกว่าตัวย่อในเลข: งบพิเศษกับงบกองทุนเป็น "งบ มธ." เหมือนกัน)
+    // งบประมาณหลักยังมาจากตัวย่อในเลขครุภัณฑ์ — ใช้แหล่งเงินแทนเฉพาะแถวที่แยกตัวย่อไม่ได้ (ดู import.controller)
+    const fundSource = d.budgetSource.replace(/^\s*\d+\s*-\s*/, "").trim();
 
     const errors = [];
     if (!d.assetCode) errors.push("ไม่มีเลขครุภัณฑ์");
@@ -181,7 +182,7 @@ function parseSheet(wb, name, mapping) {
         category: d.category || undefined,
         holderName: d.holderName || undefined,
         note: note || undefined,
-        budget: budget || undefined,
+        fundSource: fundSource || undefined,
         price: Number.isFinite(price) ? price : undefined,
         location: {
           building: d.building || undefined,

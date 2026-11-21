@@ -74,7 +74,7 @@ export default function AssetDetailPage() {
           <div><p className="text-faint text-[11px]">ประเภท</p><p>{asset.cat || '—'}</p></div>
           <div><p className="text-faint text-[11px]">สถานที่</p><p>{asset.room}</p></div>
           <div><p className="text-faint text-[11px]">ผู้ถือครอง</p><p>{asset.owner || '—'}</p></div>
-          <div><p className="text-faint text-[11px]">งบประมาณ</p><p>{asset.budget || '—'}</p></div>
+          <div><p className="text-faint text-[11px]">งบประมาณ</p><p>{asset.budget || '—'}{asset.fundSource && asset.fundSource !== asset.budget && <span className="block text-[11px] text-faint">แหล่งเงิน: {asset.fundSource}</span>}</p></div>
           <div><p className="text-faint text-[11px]">ราคา</p><p>{asset.price ? currency(asset.price) : '—'}</p></div>
           <div><p className="text-faint text-[11px]">ปีงบที่ซื้อ</p><p>{asset.codeParts?.year ? `พ.ศ. ${asset.codeParts.year < 100 ? 2500 + asset.codeParts.year : asset.codeParts.year}` : '—'}</p></div>
           <div><p className="text-faint text-[11px]">ลำดับในชุด</p><p>{asset.codeParts ? `${asset.codeParts.seq} จาก ${asset.codeParts.total}` : '—'}</p></div>

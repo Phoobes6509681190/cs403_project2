@@ -30,7 +30,7 @@ const parseJson = (s) => {
 
 // ครุภัณฑ์ทั้งหมดที่ยังไม่ถูกลบ — ใช้เทียบกับไฟล์
 const loadAssets = () =>
-  Asset.find({ isDeleted: false }, { assetCode: 1, name: 1, status: 1, location: 1, holderName: 1, brand: 1, model: 1, category: 1, note: 1, budget: 1 }).lean();
+  Asset.find({ isDeleted: false }, { assetCode: 1, name: 1, status: 1, location: 1, holderName: 1, brand: 1, model: 1, category: 1, note: 1, fundSource: 1 }).lean();
 
 const statusResolver = (statusMapping = {}) => (r) => {
   const k = r.statusKey || statusMapping[r.statusLabel];
@@ -55,9 +55,12 @@ exports.preview = async (req, res) => {
       if (!r.statusKey) unknownStatuses.set(r.statusLabel, (unknownStatuses.get(r.statusLabel) || 0) + 1);
     }
     for (const r of c.fresh) {
-      if (r.data.budget) continue; // มีแหล่งเงินในไฟล์แล้ว ไม่ต้องใช้ตัวย่อ
-      if (!r.codeRecognized) unrecognizedCodes++;
-      else if (!budgetMap.has(r.budgetAbbr)) {
+      // แยกตัวย่อไม่ได้แต่มีแหล่งเงิน -> ใช้แหล่งเงินเป็นงบ ไม่ต้องถาม
+      if (!r.codeRecognized) {
+        if (!r.data.fundSource) unrecognizedCodes++;
+        continue;
+      }
+      if (!budgetMap.has(r.budgetAbbr)) {
         const u = unknownBudgets.get(r.budgetAbbr) || { abbr: r.budgetAbbr, count: 0, example: r.data.assetCode };
         u.count++;
         unknownBudgets.set(r.budgetAbbr, u);
@@ -179,7 +182,8 @@ exports.commit = async (req, res) => {
       docs.push({
         ...r.data,
         status,
-        budget: r.data.budget || (r.budgetAbbr && budgetMap.get(r.budgetAbbr)) || "ไม่ระบุ",
+        // งบหลักจากตัวย่อในเลขครุภัณฑ์ (แยกงบพิเศษ/งบกองทุนได้) ถ้าแยกไม่ได้จึงใช้แหล่งเงิน
+        budget: (r.budgetAbbr && budgetMap.get(r.budgetAbbr)) || r.data.fundSource || "ไม่ระบุ",
         legacy: { ...r.raw, _row: r.row, _sheet: r.sheet, _file: req.file.originalname, _importedAt: new Date() }
       });
     }

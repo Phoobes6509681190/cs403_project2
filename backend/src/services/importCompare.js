@@ -14,7 +14,7 @@ const COMPARE_FIELDS = [
   { key: "model", label: "รุ่น" },
   { key: "category", label: "ประเภท" },
   { key: "note", label: "หมายเหตุ" },
-  { key: "budget", label: "งบประมาณ" }
+  { key: "fundSource", label: "แหล่งเงิน" }
 ];
 
 const norm = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
