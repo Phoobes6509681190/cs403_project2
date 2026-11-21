@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/icon'
-import { Card, StatusPill, LoadingState, ErrorState, EmptyState } from '../components/UI'
+import { Card, Btn, StatusPill, LoadingState, ErrorState, EmptyState } from '../components/UI'
+import AssetForm, { assetToForm, formToPayload } from '../components/AssetForm'
+import { useAuth } from '../hooks/useAuth'
+import { canEdit as canEditRole } from '../data/roles'
+import { getUsers } from '../services/userService'
 import { QRCodeSVG } from 'qrcode.react'
 import { STATUS } from '../data/statusConfig'
 import { submitInspectionItem } from '../services/inspectionService'
 import { InspectButtons } from '../components/InspectButtons'
 import { useToast } from '../components/UI'
-import { getAsset, getAssetHistory } from '../services/assetService'
+import { getAsset, getAssetHistory, getAssetOptions, updateAsset } from '../services/assetService'
 import { formatDateTH, formatDateTimeTH, currency } from '../utils/format'
 
 export default function AssetDetailPage() {
@@ -19,6 +23,33 @@ export default function AssetDetailPage() {
   const [saving, setSaving] = useState(false)
   const [editingResult, setEditingResult] = useState(false)
   const toast = useToast()
+  const { role } = useAuth()
+  const canEdit = canEditRole(role)
+  // แก้ไขในหน้านี้ได้เลยทุกช่อง (ผู้ดูแลระบบ / ผู้ใช้)
+  const [editMode, setEditMode] = useState(false)
+  const [form, setForm] = useState(null)
+  const [options, setOptions] = useState({})
+  const [users, setUsers] = useState([])
+  const startEdit = () => {
+    setForm(assetToForm(asset))
+    setEditMode(true)
+    getAssetOptions().then(setOptions).catch(() => {})
+    getUsers({ active: 1 }).then((d) => setUsers(d.items || [])).catch(() => {})
+  }
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await updateAsset(asset.id, formToPayload(form))
+      toast.success('บันทึกการแก้ไขเรียบร้อยแล้ว')
+      setEditMode(false)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'บันทึกข้อมูลไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const inspect = async (status) => {
     setSaving(true)
@@ -67,22 +98,39 @@ export default function AssetDetailPage() {
             <h2 className="text-lg font-bold">{asset.name}</h2>
             <p className="text-[13px] text-muted">{[asset.brand, asset.model].filter(Boolean).join(' · ') || '—'}</p>
           </div>
-          <StatusPill status={asset.status} />
+          <div className="flex items-center gap-2">
+            <StatusPill status={asset.status} />
+            {canEdit && !editMode && (
+              <Btn onClick={startEdit}>
+                <Icon name="edit" /> แก้ไข
+              </Btn>
+            )}
+          </div>
         </div>
 
+        {editMode && form ? (
+          <div className="mt-5">
+            <AssetForm id="asset-edit" form={form} setForm={setForm} onSubmit={saveEdit} options={options} users={users} />
+            <div className="flex justify-end gap-2 mt-4">
+              <Btn onClick={() => setEditMode(false)} disabled={saving}>ยกเลิก</Btn>
+              <Btn variant="primary" type="submit" form="asset-edit" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
+            </div>
+          </div>
+        ) : (
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-[13px]">
-          <div><p className="text-faint text-[11px]">ประเภท</p><p>{asset.cat || '—'}</p></div>
-          <div><p className="text-faint text-[11px]">สถานที่</p><p>{asset.room}</p></div>
-          <div><p className="text-faint text-[11px]">ผู้ถือครอง</p><p>{asset.owner || '—'}</p></div>
-          <div><p className="text-faint text-[11px]">งบประมาณ</p><p>{asset.budget || '—'}{asset.fundSource && asset.fundSource !== asset.budget && <span className="block text-[11px] text-faint">แหล่งเงิน: {asset.fundSource}</span>}</p></div>
-          <div><p className="text-faint text-[11px]">ราคา</p><p>{asset.price ? currency(asset.price) : '—'}</p></div>
-          <div><p className="text-faint text-[11px]">ปีงบที่ซื้อ</p><p>{asset.codeParts?.year ? `พ.ศ. ${asset.codeParts.year < 100 ? 2500 + asset.codeParts.year : asset.codeParts.year}` : '—'}</p></div>
-          <div><p className="text-faint text-[11px]">ลำดับในชุด</p><p>{asset.codeParts ? `${asset.codeParts.seq} จาก ${asset.codeParts.total}` : '—'}</p></div>
-          <div><p className="text-faint text-[11px]">ตรวจนับล่าสุด</p><p>{formatDateTH(asset.lastInspectedAt)}</p></div>
-          {asset.note && (
-            <div className="col-span-2 sm:col-span-3"><p className="text-faint text-[11px]">หมายเหตุ</p><p>{asset.note}</p></div>
-          )}
-        </div>
+            <div><p className="text-faint text-[11px]">ประเภท</p><p>{asset.cat || '—'}</p></div>
+            <div><p className="text-faint text-[11px]">สถานที่</p><p>{asset.room}</p></div>
+            <div><p className="text-faint text-[11px]">ผู้ถือครอง</p><p>{asset.owner || '—'}</p></div>
+            <div><p className="text-faint text-[11px]">งบประมาณ</p><p>{asset.budget || '—'}{asset.fundSource && asset.fundSource !== asset.budget && <span className="block text-[11px] text-faint">แหล่งเงิน: {asset.fundSource}</span>}</p></div>
+            <div><p className="text-faint text-[11px]">ราคา</p><p>{asset.price ? currency(asset.price) : '—'}</p></div>
+            <div><p className="text-faint text-[11px]">ปีงบที่ซื้อ</p><p>{asset.codeParts?.year ? `พ.ศ. ${asset.codeParts.year < 100 ? 2500 + asset.codeParts.year : asset.codeParts.year}` : '—'}</p></div>
+            <div><p className="text-faint text-[11px]">ลำดับในชุด</p><p>{asset.codeParts ? `${asset.codeParts.seq} จาก ${asset.codeParts.total}` : '—'}</p></div>
+            <div><p className="text-faint text-[11px]">ตรวจนับล่าสุด</p><p>{formatDateTH(asset.lastInspectedAt)}</p></div>
+            {asset.note && (
+              <div className="col-span-2 sm:col-span-3"><p className="text-faint text-[11px]">หมายเหตุ</p><p>{asset.note}</p></div>
+            )}
+          </div>
+        )}
       </Card>
 
       {asset.inspection && (

@@ -29,6 +29,17 @@ function applyInput(asset, input) {
   }
 }
 
+// คอลัมน์ที่กรองแบบค่าตรงตัวได้ และเรียงลำดับได้ (ชื่อพารามิเตอร์ -> ฟิลด์ใน DB)
+const COLUMN_FILTERS = {
+  building: "location.building", floor: "location.floor", roomNo: "location.room",
+  cat: "category", brand: "brand", model: "model", code: "assetCode", name: "name"
+};
+const SORTS = {
+  building: "location.building", floor: "location.floor", roomNo: "location.room", room: "location.label",
+  status: "status", code: "assetCode", name: "name", brand: "brand", model: "model", cat: "category",
+  owner: "holderName", budget: "budget", createdAt: "createdAt"
+};
+
 // ตัวกรองเดียวกันทั้งหน้ารายการและ "ลบทั้งหมดตามตัวกรอง"
 function buildFilter(query = {}, user) {
   const { q, status, room, budget, holder } = query;
@@ -37,6 +48,10 @@ function buildFilter(query = {}, user) {
   if (room) filter["location.label"] = String(room);
   if (budget) filter.budget = String(budget);
   if (holder) filter.holderName = String(holder);
+  // กรองรายคอลัมน์ (ค่าตรงตัว จาก dropdown)
+  for (const [param, path] of Object.entries(COLUMN_FILTERS)) {
+    if (query[param] !== undefined && query[param] !== "") filter[path] = String(query[param]);
+  }
   // ?year=57 — ปีงบประมาณจากเลขครุภัณฑ์ (ใช้กับ "ลบทั้งหมดของปีนั้น")
   const year = parseInt(query.year, 10);
   if (Number.isFinite(year)) filter["codeParts.year"] = year;
@@ -54,6 +69,30 @@ function buildFilter(query = {}, user) {
   return filter;
 }
 
+// ?sort=name&dir=asc|desc (หรือ sort=-createdAt แบบเดิม) — ไม่ระบุ = เรียงตามปีงบล่าสุดและลำดับชิ้น
+function sortOf(query) {
+  const raw = String(query.sort || "");
+  const desc = raw.startsWith("-") || query.dir === "desc";
+  const path = SORTS[raw.replace(/^-/, "")];
+  if (!path) return { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 };
+  return { [path]: desc ? -1 : 1, _id: desc ? -1 : 1 };
+}
+
+// GET /api/assets/options — ค่าที่มีอยู่แล้วของแต่ละช่อง (ทำ dropdown ที่พิมพ์ค้นหาได้ แทนการพิมพ์อิสระ)
+exports.getOptions = async (req, res) => {
+  try {
+    const live = { isDeleted: false };
+    const fields = { building: "location.building", floor: "location.floor", roomNo: "location.room", room: "location.label",
+      cat: "category", brand: "brand", model: "model", owner: "holderName", budget: "budget" };
+    const entries = await Promise.all(
+      Object.entries(fields).map(async ([k, path]) => [k, (await Asset.distinct(path, live)).filter((v) => v !== null && v !== "").map(String).sort((a, b) => a.localeCompare(b, "th", { numeric: true }))])
+    );
+    res.json({ success: true, ...Object.fromEntries(entries) });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
 // GET /api/assets?q=&status=&room=&budget=&page=1&perPage=10
 exports.getAssets = async (req, res) => {
   try {
@@ -63,7 +102,7 @@ exports.getAssets = async (req, res) => {
     const filter = buildFilter(req.query, req.user);
 
     const [items, total, rooms, budgets, qrUnprinted, years] = await Promise.all([
-      Asset.find(filter).sort(req.query.sort === "-createdAt" ? { createdAt: -1, _id: -1 } : { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
+      Asset.find(filter).sort(sortOf(req.query))
         .skip((page - 1) * perPage).limit(perPage).lean(),
       Asset.countDocuments(filter),
       Asset.distinct("location.label", { isDeleted: false }),

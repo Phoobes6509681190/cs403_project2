@@ -1,5 +1,5 @@
 import { roleLabel } from '../data/roles'
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './icon'
 import { STATUS } from '../data/statusConfig'
@@ -313,5 +313,87 @@ export function Avatar({ user, size = 36, className = '' }) {
     <span style={style} className={`rounded-full bg-brandsoft text-brandink grid place-items-center font-bold shrink-0 ${className}`}>
       {initials}
     </span>
+  )
+}
+
+// Dropdown ที่พิมพ์ค้นหาได้ — เลือกได้เฉพาะค่าที่มีในรายการ (กันพิมพ์ผิดจนกรอง/เรียงไม่ได้)
+//   options: string[] หรือ { value, label }[]
+//   allowCreate: เพิ่มค่าใหม่ได้ (ต้องกด "+ เพิ่ม ..." ชัด ๆ) — ใช้กับตึก/ห้อง/ประเภทใหม่
+//   emptyLabel: ข้อความของค่าว่าง (เช่น "ทุกห้อง" ในตัวกรอง) — ไม่ส่ง = ไม่มีตัวเลือกค่าว่าง
+export function Combobox({ label, required, value, onChange, options = [], placeholder = 'พิมพ์เพื่อค้นหา', allowCreate, emptyLabel, className = '', compact, disabled }) {
+  const items = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
+  const current = items.find((o) => o.value === value)
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [hi, setHi] = useState(0)
+  const wrap = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => { if (!wrap.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  const q = text.trim().toLowerCase()
+  const shown = items.filter((o) => !q || o.label.toLowerCase().includes(q)).slice(0, 200)
+  const canCreate = allowCreate && q && !items.some((o) => o.label.toLowerCase() === q)
+  const rows = [
+    ...(emptyLabel !== undefined ? [{ value: '', label: emptyLabel, empty: true }] : []),
+    ...shown,
+    ...(canCreate ? [{ value: text.trim(), label: `+ เพิ่ม “${text.trim()}”`, create: true }] : []),
+  ]
+  const pick = (o) => {
+    onChange(o.value)
+    setOpen(false)
+    setText('')
+  }
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setHi((h) => Math.min(h + 1, rows.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)) }
+    else if (e.key === 'Enter' && open && rows[hi]) { e.preventDefault(); pick(rows[hi]) }
+    else if (e.key === 'Escape') setOpen(false)
+  }
+  const display = open ? text : current?.label ?? value ?? ''
+
+  return (
+    <label className={`block relative ${className}`} ref={wrap}>
+      {label && (
+        <span className="text-[13px] text-muted">
+          {label}
+          {required && <span className="text-bad"> *</span>}
+        </span>
+      )}
+      <input
+        value={display}
+        disabled={disabled}
+        // ช่อง required ที่ยังไม่เลือก ให้ฟอร์มกันการบันทึก
+        required={required && !value}
+        onFocus={() => { setOpen(true); setText(''); setHi(0) }}
+        onChange={(e) => { setText(e.target.value); setOpen(true); setHi(0) }}
+        onKeyDown={onKey}
+        // ระหว่างพิมพ์ค้นหา ให้ค่าปัจจุบันเป็นตัวจางไว้ จะได้รู้ว่าเลือกอะไรอยู่
+        placeholder={open ? current?.label || value || placeholder : current || value ? undefined : emptyLabel ?? placeholder}
+        className={`${label ? 'mt-1.5' : ''} w-full rounded-xl border border-line bg-surface ${compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2.5'} text-ink placeholder:text-faint focus:border-brand hover:border-ink/30 transition-colors`}
+      />
+      <Icon name="chevron" className="w-3.5 h-3.5 absolute right-3 bottom-3 text-faint pointer-events-none" />
+      {open && (
+        <ul role="listbox" className="absolute z-30 mt-1 w-full min-w-[13rem] max-w-[22rem] max-h-64 overflow-auto rounded-xl border border-line bg-surface shadow-card py-1 text-[13px]">
+          {rows.map((o, i) => (
+            <li
+              key={`${o.create ? '+' : ''}${o.value}`}
+              role="option"
+              aria-selected={o.value === value}
+              onMouseDown={(e) => { e.preventDefault(); pick(o) }}
+              onMouseEnter={() => setHi(i)}
+              className={`px-3 py-1.5 cursor-pointer ${i === hi ? 'bg-brandsoft' : ''} ${o.value === value && !o.create ? 'font-medium text-brand' : ''} ${o.empty ? 'text-muted' : ''} ${o.create ? 'text-brand' : ''}`}
+            >
+              {o.label}
+            </li>
+          ))}
+          {rows.length === 0 && <li className="px-3 py-2 text-faint">ไม่พบ{allowCreate ? '' : ' (เลือกได้เฉพาะค่าที่มีอยู่)'}</li>}
+        </ul>
+      )}
+    </label>
   )
 }

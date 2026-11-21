@@ -19,6 +19,7 @@ router.post("/import", editor, upload.single("file"), importer.commit);
 router.get("/trash", admin, asset.getTrash);
 router.delete("/trash", admin, asset.emptyTrash);
 router.get("/", asset.getAssets);
+router.get("/options", asset.getOptions);
 router.post("/", editor, asset.createAsset);
 router.post("/qr-printed", editor, asset.markQrPrinted);
 router.post("/bulk-delete", admin, asset.bulkDelete);

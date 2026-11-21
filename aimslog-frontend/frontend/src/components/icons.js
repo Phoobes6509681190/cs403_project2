@@ -25,6 +25,7 @@ export const ICONS = {
     { tag: 'path', d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z' },
     { tag: 'path', d: 'M14 3v5h5' },
   ],
+  chevron: [{ tag: 'path', d: 'm6 9 6 6 6-6' }],
   eye: [
     { tag: 'path', d: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z' },
     { tag: 'circle', cx: 12, cy: 12, r: 3 },

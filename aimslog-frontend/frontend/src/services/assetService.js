@@ -8,6 +8,11 @@ export function getAssets(params = {}) {
   return api.get('/assets', { params }).then((res) => res.data)
 }
 
+// ค่าที่มีอยู่แล้วของแต่ละช่อง (ตึก ชั้น ห้อง ประเภท ยี่ห้อ รุ่น ผู้ถือครอง งบ) สำหรับ dropdown ที่พิมพ์ค้นหาได้
+export function getAssetOptions() {
+  return api.get('/assets/options').then((res) => res.data)
+}
+
 export function getAsset(id) {
   return api.get(`/assets/${id}`).then((res) => res.data)
 }
