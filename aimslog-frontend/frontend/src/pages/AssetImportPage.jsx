@@ -17,6 +17,10 @@ export default function AssetImportPage() {
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
+  // ชีตและการจับคู่คอลัมน์ — ระบบเดาให้ครั้งแรก ผู้ใช้แก้ได้ แล้วตรวจไฟล์ใหม่ตามที่เลือก
+  const [sheet, setSheet] = useState('')
+  const [mapping, setMapping] = useState(null)
+  const [sheetError, setSheetError] = useState(null) // { message, sheets } เมื่อหาหัวตารางไม่เจอ
 
   const reset = () => {
     setFile(null)
@@ -25,6 +29,45 @@ export default function AssetImportPage() {
     setBudgetMapping({})
     setShowMissing(false)
     setResult(null)
+    setSheet('')
+    setMapping(null)
+    setSheetError(null)
+  }
+
+  // ตรวจไฟล์ (preview) ตามชีต/คอลัมน์ที่เลือก — เรียกครั้งแรกตอนเลือกไฟล์ และทุกครั้งที่เปลี่ยนชีต/คอลัมน์
+  const runPreview = async (f, opts = {}) => {
+    setChecking(true)
+    setSheetError(null)
+    try {
+      const data = await previewImport(f, opts)
+      setPreview(data)
+      setSheet(data.sheet)
+      setMapping(data.mapping)
+      setStatusMapping(Object.fromEntries(data.unknownStatuses.map((s) => [s.label, ''])))
+      setBudgetMapping(Object.fromEntries(data.unknownBudgets.map((b) => [b.abbr, ''])))
+    } catch (err) {
+      const d = err.response?.data
+      if (d?.sheets?.length) {
+        setPreview(null)
+        setSheetError({ message: d.message, sheets: d.sheets })
+        if (opts.sheet) setSheet(opts.sheet)
+      } else {
+        toast.error(d?.message || 'อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv')
+        reset()
+      }
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const changeSheet = (name) => {
+    setMapping(null)
+    runPreview(file, { sheet: name })
+  }
+  const changeColumn = (field, header) => {
+    const next = { ...mapping, [field]: header }
+    setMapping(next)
+    runPreview(file, { sheet, mapping: next })
   }
 
   const onFileChange = async (e) => {
@@ -33,18 +76,7 @@ export default function AssetImportPage() {
     if (!f) return
     reset()
     setFile(f)
-    setChecking(true)
-    try {
-      const data = await previewImport(f)
-      setPreview(data)
-      setStatusMapping(Object.fromEntries(data.unknownStatuses.map((s) => [s.label, ''])))
-      setBudgetMapping(Object.fromEntries(data.unknownBudgets.map((b) => [b.abbr, ''])))
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv')
-      reset()
-    } finally {
-      setChecking(false)
-    }
+    runPreview(f)
   }
 
   const missingStatus = Object.values(statusMapping).some((v) => !v)
@@ -54,7 +86,7 @@ export default function AssetImportPage() {
   const confirmImport = async () => {
     setImporting(true)
     try {
-      const data = await commitImport(file, { statusMapping, budgetMapping })
+      const data = await commitImport(file, { statusMapping, budgetMapping, sheet, mapping })
       setResult(data)
       toast.success(`เพิ่มใหม่ ${nf(data.successCount)} · อัปเดต ${nf(data.updatedCount)} รายการ`)
     } catch (err) {
@@ -90,6 +122,52 @@ export default function AssetImportPage() {
           <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={onFileChange} />
         </label>
       </Card>
+
+      {sheetError && !result && (
+        <Card className="p-4">
+          <p className="text-[13px] text-bad mb-3">{sheetError.message}</p>
+          <SelectField
+            label="เลือกชีตที่มีรายการครุภัณฑ์"
+            value={sheet}
+            onChange={(e) => changeSheet(e.target.value)}
+            options={[{ value: '', label: '— เลือกชีต —' }, ...sheetError.sheets.map((s) => ({ value: s, label: s }))]}
+          />
+        </Card>
+      )}
+
+      {preview && mapping && !result && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <h3 className="font-semibold mr-auto">ชีตและคอลัมน์ในไฟล์</h3>
+            {preview.sheets.length > 1 && (
+              <SelectField
+                label="ชีต"
+                value={sheet}
+                disabled={checking}
+                onChange={(e) => changeSheet(e.target.value)}
+                options={preview.sheets.map((s) => ({ value: s, label: s }))}
+              />
+            )}
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {preview.fields.map((f) => (
+              <SelectField
+                key={f.key}
+                label={f.label}
+                required={f.required}
+                disabled={checking}
+                value={mapping[f.key] || ''}
+                onChange={(e) => changeColumn(f.key, e.target.value)}
+                options={[
+                  { value: '', label: f.required ? '— เลือกคอลัมน์ —' : '— ไม่มีในไฟล์ —' },
+                  ...[...new Set(preview.headers.filter(Boolean))].map((h) => ({ value: h, label: h })),
+                ]}
+              />
+            ))}
+          </div>
+          <p className="text-[11px] text-faint mt-3">คอลัมน์อื่นในไฟล์ไม่หาย ระบบเก็บค่าเดิมทั้งแถวไว้กับครุภัณฑ์แต่ละชิ้น</p>
+        </Card>
+      )}
 
       {checking && <LoadingState label="กำลังตรวจสอบไฟล์..." />}
 

@@ -38,6 +38,8 @@ const assetSchema = new mongoose.Schema(
     holderName: { type: String, trim: true },
     // ถ้าผู้ถือครองมีบัญชี ผูกไว้เพื่อให้ login มาตรวจของตัวเองได้ (Sprint ตรวจนับ)
     holderUser: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // หมายเหตุสภาพ เช่น ใช้งานไม่ได้เพราะอะไร / สูญหายเมื่อไร (ไฟล์คณะมีคอลัมน์ F, G สำหรับเรื่องนี้)
+    note: { type: String, trim: true },
 
     price: { type: Number, min: 0 },
     acquiredAt: { type: Date },

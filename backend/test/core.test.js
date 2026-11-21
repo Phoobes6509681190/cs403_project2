@@ -69,3 +69,35 @@ test("escapeRegex: ข้อความค้นหาไม่กลายเ�
   assert.ok(new RegExp(escapeRegex("1/80 (DELL)")).test("วทท 1/80 (DELL)"));
   assert.doesNotThrow(() => new RegExp(escapeRegex("((((")));
 });
+
+test("parseWorkbook: ไฟล์คณะปี 68 — ข้ามชีตสรุป, เลขอยู่ใน Ref No. 1, ประเภท (FSN), หมายเหตุ F/G", () => {
+  const H = ["ตึก/อาคาร", "ชั้น", "ห้อง", "ระบุ สถานที่ใช้งาน", "สภาพ", "ระบุ สภาพครุภัณฑ์เฉพาะที่ใช้งานไม่ได้", "ระบุ สภาพครุภัณฑ์เฉพาะที่สูญหาย",
+    "ผู้รับผิดชอบ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์", "ยี่ห้อ", "รุ่น", "Ref No. 1", "ประเภท (FSN)", "มูลค่าต้นทุนที่ได้มา"];
+  const rows = [
+    ["บร.2", "2", "211", "บร.2 ชั้น 2 ห้อง 211", "ปกติ", "-", "-", "สาขาวิชาฯ", "", "ชุดโต๊ะ", "EARNEST", "-", "วทท-8พ(4.7)-42-1/7", "10 - เครื่องตกแต่งสำนักงาน", "5,599.99"],
+    ["บร.2", "3", "308", "บร.2 ชั้น 3 ห้อง 308", "หาไม่พบ", "-", "หายปี 66", "IT", "", "เก้าอี้", "ITOKI", "GD-01", "วทท-8พ-59-1/15", "10 - เครื่องตกแต่งสำนักงาน", "1,091.40"]
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["สรุป"], ["งบ", "จำนวน"]]), "SUMMARY");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([H, ...rows]), "สินทรัพย์ต่ำกว่า 10000 บาท");
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+  const r = parseWorkbook(buf);
+  assert.strictEqual(r.sheet, "สินทรัพย์ต่ำกว่า 10000 บาท");
+  assert.deepStrictEqual(r.sheets, ["SUMMARY", "สินทรัพย์ต่ำกว่า 10000 บาท"]);
+  assert.strictEqual(r.mapping.assetCode, "Ref No. 1", "คอลัมน์ที่มีข้อมูลชนะคอลัมน์ว่าง");
+  const [a, b] = r.rows;
+  assert.deepStrictEqual(a.errors, []);
+  assert.strictEqual(a.budgetAbbr, "พ");
+  assert.strictEqual(a.data.category, "10 - เครื่องตกแต่งสำนักงาน");
+  assert.strictEqual(a.data.price, 5599.99);
+  assert.strictEqual(a.data.model, undefined, '"-" ถือว่าว่าง');
+  assert.strictEqual(b.statusKey, "missing");
+  assert.strictEqual(b.data.note, "หายปี 66");
+  assert.strictEqual(b.data.holderName, "IT");
+
+  // ผู้ใช้เลือกเอง: ไม่มีคอลัมน์ผู้ถือครอง, ระบุชีตตรง ๆ
+  const m = parseWorkbook(buf, { sheet: "สินทรัพย์ต่ำกว่า 10000 บาท", mapping: { holderName: "" } });
+  assert.strictEqual(m.rows[0].data.holderName, undefined);
+  assert.throws(() => parseWorkbook(buf, { sheet: "SUMMARY" }), /ไม่พบหัวตาราง/);
+});

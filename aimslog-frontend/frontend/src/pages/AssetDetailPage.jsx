@@ -79,6 +79,9 @@ export default function AssetDetailPage() {
           <div><p className="text-faint text-[11px]">ปีงบที่ซื้อ</p><p>{asset.codeParts?.year ? `พ.ศ. ${asset.codeParts.year < 100 ? 2500 + asset.codeParts.year : asset.codeParts.year}` : '—'}</p></div>
           <div><p className="text-faint text-[11px]">ลำดับในชุด</p><p>{asset.codeParts ? `${asset.codeParts.seq} จาก ${asset.codeParts.total}` : '—'}</p></div>
           <div><p className="text-faint text-[11px]">ตรวจนับล่าสุด</p><p>{formatDateTH(asset.lastInspectedAt)}</p></div>
+          {asset.note && (
+            <div className="col-span-2 sm:col-span-3"><p className="text-faint text-[11px]">หมายเหตุ</p><p>{asset.note}</p></div>
+          )}
         </div>
       </Card>
 

@@ -19,7 +19,7 @@ const composeLocation = (f) =>
   [f.building, f.floor && `ชั้น ${f.floor}`, f.roomNo && `ห้อง ${f.roomNo}`].filter(Boolean).join(' ')
 
 const emptyForm = {
-  code: '', name: '', model: '', brand: '', cat: '', building: '', floor: '', roomNo: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
+  code: '', name: '', model: '', brand: '', cat: '', note: '', building: '', floor: '', roomNo: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
 }
 
 export default function AssetListPage() {
@@ -428,6 +428,13 @@ export default function AssetListPage() {
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value })}
             options={STATUS_OPTIONS.map((s) => ({ value: s.key, label: s.label }))}
+          />
+          <Field
+            label="หมายเหตุ"
+            className="col-span-2"
+            placeholder="เช่น ใช้งานไม่ได้เพราะ... / สูญหายเมื่อ..."
+            value={form.note}
+            onChange={(e) => setForm({ ...form, note: e.target.value })}
           />
         </form>
       </Modal>

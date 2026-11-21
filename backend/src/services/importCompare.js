@@ -10,7 +10,10 @@ const COMPARE_FIELDS = [
   { key: "room", label: "ห้อง" },
   { key: "location", label: "สถานที่ใช้งาน" },
   { key: "holderName", label: "ผู้ถือครอง" },
-  { key: "brand", label: "ยี่ห้อ" }
+  { key: "brand", label: "ยี่ห้อ" },
+  { key: "model", label: "รุ่น" },
+  { key: "category", label: "ประเภท" },
+  { key: "note", label: "หมายเหตุ" }
 ];
 
 const norm = (v) => String(v ?? "").replace(/\s+/g, " ").trim();

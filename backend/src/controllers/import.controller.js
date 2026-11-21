@@ -2,7 +2,7 @@ const Asset = require("../models/Asset");
 const Budget = require("../models/Budget");
 const AssetHistory = require("../models/AssetHistory");
 const { STATUS_KEYS, statusFromLabel } = require("../constants/status");
-const { parseWorkbook } = require("../services/import.service");
+const { parseWorkbook, FIELDS } = require("../services/import.service");
 const { getBudgetMap } = require("../services/budget.service");
 const { classify, rowLocationLabel, LOCATION_PARTS } = require("../services/importCompare");
 
@@ -15,7 +15,8 @@ function readUpload(req) {
     err.status = 400;
     throw err;
   }
-  return parseWorkbook(req.file.buffer);
+  // ชีตและการจับคู่คอลัมน์ที่ผู้ใช้เลือกในหน้า Import (ส่งมาทั้งตอน preview และตอนบันทึก)
+  return parseWorkbook(req.file.buffer, { sheet: req.body?.sheet || undefined, mapping: parseJson(req.body?.mapping) });
 }
 
 const parseJson = (s) => {
@@ -24,7 +25,7 @@ const parseJson = (s) => {
 
 // ครุภัณฑ์ทั้งหมดที่ยังไม่ถูกลบ — ใช้เทียบกับไฟล์
 const loadAssets = () =>
-  Asset.find({ isDeleted: false }, { assetCode: 1, name: 1, status: 1, location: 1, holderName: 1, brand: 1 }).lean();
+  Asset.find({ isDeleted: false }, { assetCode: 1, name: 1, status: 1, location: 1, holderName: 1, brand: 1, model: 1, category: 1, note: 1 }).lean();
 
 const statusResolver = (statusMapping = {}) => (r) => {
   const k = r.statusKey || statusMapping[r.statusLabel];
@@ -64,6 +65,10 @@ exports.preview = async (req, res) => {
 
     res.json({
       success: true,
+      sheets: parsed.sheets,
+      sheet: parsed.sheet,
+      mapping: parsed.mapping,
+      fields: FIELDS.map(({ key, label, required }) => ({ key, label, required: !!required })),
       headerRow: parsed.headerRow,
       headers: parsed.headers,
       unknownColumns: parsed.unknownColumns,
@@ -122,7 +127,8 @@ exports.preview = async (req, res) => {
       }))
     });
   } catch (error) {
-    fail(res, error.status || 500, error.message);
+    // หาหัวตารางไม่เจอ: ส่งรายชื่อชีตกลับไปให้ผู้ใช้เลือกชีตอื่นได้
+    res.status(error.status || 500).json({ success: false, message: error.message, sheets: error.sheets });
   }
 };
 
