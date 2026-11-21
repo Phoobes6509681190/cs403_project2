@@ -58,7 +58,7 @@ function fromAssetInput(body = {}) {
   return out;
 }
 
-const FIELD_LABELS = { status: "สถานะ", location: "สถานที่", building: "ตึก/อาคาร", floor: "ชั้น", room: "ห้อง", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ", note: "หมายเหตุ", fundSource: "แหล่งเงิน" };
+const FIELD_LABELS = { assetCode: "เลขครุภัณฑ์", name: "ชื่อ", model: "รุ่น", category: "ประเภท", budget: "งบประมาณ", price: "ราคา", status: "สถานะ", location: "สถานที่", building: "ตึก/อาคาร", floor: "ชั้น", room: "ห้อง", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ", note: "หมายเหตุ", fundSource: "แหล่งเงิน" };
 
 function historySummary(h) {
   if (h.action === "create") return "เพิ่มครุภัณฑ์เข้าระบบ";

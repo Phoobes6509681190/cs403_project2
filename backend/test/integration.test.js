@@ -251,7 +251,7 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(self.data.item.method, "self");
   });
 
-  await t.test("กรรมการบันทึกผล: สถานะครุภัณฑ์เปลี่ยน + ประวัติ, ตัดโอนไม่ใช่ผลตรวจ", async () => {
+  await t.test("กรรมการบันทึกผล: สถานะครุภัณฑ์เปลี่ยน + ประวัติ, จำหน่ายแล้ว/หาไม่พบต้องมีหมายเหตุ", async () => {
     const r = await api("POST", `/inspections/${ids.round}/items`, { token: tok.member, body: { assetId: ids.asset13, status: "broken", note: "จอแตก" } });
     assert.strictEqual(r.status, 200);
     const a = await api("GET", `/assets/${ids.asset13}`, { token: tok.admin });
@@ -259,12 +259,22 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.ok(a.data.lastInspectedAt);
 
     const bad = await api("POST", `/inspections/${ids.round}/items`, { token: tok.member, body: { assetId: ids.asset13, status: "transferred" } });
-    assert.strictEqual(bad.status, 400);
+    assert.strictEqual(bad.status, 400, "จำหน่ายแล้วต้องมีหมายเหตุ");
+  });
+
+  await t.test("กรรมการเติมข้อมูลที่ขาดได้ระหว่างรอบ (เฉพาะช่องรายละเอียด)", async () => {
+    const r = await api("PUT", `/assets/${ids.asset13}`, { token: tok.member, body: { brand: "DELL", price: 1, code: "แก้ไม่ได้" } });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.brand, "DELL");
+    assert.notStrictEqual(r.data.code, "แก้ไม่ได้");
+    assert.notStrictEqual(r.data.price, 1);
+    const no = await api("PUT", `/assets/${ids.asset13}`, { token: tok.other, body: { brand: "X" } });
+    assert.strictEqual(no.status, 403);
   });
 
   await t.test("ตรวจทั้งห้อง: บันทึกเฉพาะชิ้นที่ยังไม่ตรวจ ไม่ทับผลเดิม", async () => {
     const r = await api("POST", `/inspections/${ids.round}/bulk`, {
-      token: tok.member, body: { room: "บร.2 ชั้น 1 ห้อง 107", status: "missing" }
+      token: tok.member, body: { room: "บร.2 ชั้น 1 ห้อง 107", status: "missing", note: "ห้องรื้อปรับปรุง" }
     });
     assert.strictEqual(r.status, 200);
     assert.strictEqual(r.data.updated, 4, "6 ชิ้นในห้อง 107 - ที่ตรวจแล้ว 2 ชิ้น");

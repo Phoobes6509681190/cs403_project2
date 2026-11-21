@@ -6,7 +6,8 @@ const escapeRegex = require("../utils/escapeRegex");
 const { getBudgetMap, budgetNameFromCode } = require("../services/budget.service");
 const { toAssetDto, fromAssetInput, toHistoryDto } = require("../services/assetDto");
 const InspectionItem = require("../models/InspectionItem");
-const { getOpenInspection, canInspectItem } = require("../services/inspection.service");
+const { getOpenInspection, canInspectItem, isCommittee } = require("../services/inspection.service");
+const { isEditor } = require("../constants/roles");
 
 const fail = (res, code, message) => res.status(code).json({ success: false, message });
 const isId = (id) => mongoose.isValidObjectId(id);
@@ -16,8 +17,20 @@ const actor = (req) => ({ changedBy: req.user?.userId, changedByName: req.user?.
 const TRACKED = [
   ["status", (a) => a.status],
   ["location", (a) => a.location?.label || ""],
-  ["holderName", (a) => a.holderName || ""]
+  ["holderName", (a) => a.holderName || ""],
+  ["assetCode", (a) => a.assetCode || ""],
+  ["name", (a) => a.name || ""],
+  ["brand", (a) => a.brand || ""],
+  ["model", (a) => a.model || ""],
+  ["category", (a) => a.category || ""],
+  ["budget", (a) => a.budget || ""],
+  ["price", (a) => (a.price === undefined || a.price === null ? "" : String(a.price))],
+  ["note", (a) => a.note || ""]
 ];
+
+// กรรมการตรวจนับ (ที่ไม่ใช่ผู้ดูแล/ผู้ใช้) แก้ข้อมูลที่ขาดได้ระหว่างรอบที่เปิด — เฉพาะช่องรายละเอียด
+// ห้ามแก้เลขครุภัณฑ์ งบ ราคา สถานะ (สถานะต้องเปลี่ยนผ่านผลตรวจ)
+const COMMITTEE_FIELDS = ["name", "brand", "model", "category", "location", "locationLabel", "holderName", "note"];
 
 function applyInput(asset, input) {
   const { locationLabel, location, ...rest } = input;
@@ -147,7 +160,10 @@ exports.getAsset = async (req, res) => {
           result: item.result,
           checkedBy: item.checkedByName || "",
           checkedAt: item.checkedAt || null,
-          canInspect: canInspectItem(open, item, req.user)
+          note: item.note || "",
+          canInspect: canInspectItem(open, item, req.user),
+          // กรรมการรอบนี้แก้ข้อมูลที่ขาดได้ (เฉพาะช่องรายละเอียด)
+          isCommittee: isCommittee(open, req.user)
         };
       }
     }
@@ -174,15 +190,24 @@ exports.createAsset = async (req, res) => {
   }
 };
 
-// PUT /api/assets/:id (admin)
+// PUT /api/assets/:id (ผู้ดูแลระบบ/ผู้ใช้ — หรือกรรมการรอบที่เปิดอยู่ แก้ได้เฉพาะช่องรายละเอียด)
 exports.updateAsset = async (req, res) => {
   try {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    let input = fromAssetInput(req.body);
+    let byCommittee = false;
+    if (!isEditor(req.user)) {
+      const open = await getOpenInspection();
+      if (!open || !isCommittee(open, req.user)) return fail(res, 403, "คุณไม่มีสิทธิ์แก้ไขข้อมูลนี้");
+      const inRound = await InspectionItem.exists({ inspection: open._id, asset: req.params.id });
+      if (!inRound) return fail(res, 403, "แก้ไขได้เฉพาะครุภัณฑ์ในรอบตรวจนับที่เปิดอยู่");
+      input = Object.fromEntries(Object.entries(input).filter(([k]) => COMMITTEE_FIELDS.includes(k)));
+      byCommittee = true;
+    }
     const asset = await Asset.findOne({ _id: req.params.id, isDeleted: false });
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
 
     const before = TRACKED.map(([f, get]) => [f, get(asset)]);
-    const input = fromAssetInput(req.body);
     applyInput(asset, input);
     if (input.assetCode !== undefined && input.budget === undefined) {
       asset.budget = budgetNameFromCode(asset.assetCode, await getBudgetMap()) || asset.budget;
@@ -190,21 +215,19 @@ exports.updateAsset = async (req, res) => {
     await asset.save();
 
     // ผูกบัญชีผู้ถือครองใหม่ -> ให้ผู้ถือคนใหม่ยืนยันในรอบที่เปิดอยู่ได้ทันที
-    if (input.holderUser !== undefined) {
-      const open = await getOpenInspection();
-      if (open) {
-        await InspectionItem.updateOne(
-          { inspection: open._id, asset: asset._id },
-          { holderUser: asset.holderUser || null, "snapshot.holderName": asset.holderName || "" }
-        );
-      }
+    // อัปเดตสำเนาในรอบที่เปิดอยู่ให้ตรง (ชื่อ/สถานที่/ผู้ถือ) — ผูกบัญชีใหม่ก็ยืนยันเองได้ทันที
+    const open = await getOpenInspection();
+    if (open) {
+      const snap = { "snapshot.name": asset.name, "snapshot.room": asset.location?.label || "", "snapshot.holderName": asset.holderName || "" };
+      if (input.holderUser !== undefined) snap.holderUser = asset.holderUser || null;
+      await InspectionItem.updateOne({ inspection: open._id, asset: asset._id }, snap);
     }
 
     const changes = before
       .map(([field, oldValue], i) => ({ field, oldValue, newValue: TRACKED[i][1](asset) }))
       .filter((c) => c.oldValue !== c.newValue);
     if (changes.length) {
-      await AssetHistory.create({ asset: asset._id, action: "update", changes, ...actor(req) });
+      await AssetHistory.create({ asset: asset._id, action: byCommittee ? "inspect" : "update", changes, ...actor(req) });
     }
 
     res.json(toAssetDto(asset));

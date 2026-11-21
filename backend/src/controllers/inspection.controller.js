@@ -7,7 +7,7 @@ const User = require("../models/User");
 const { NOT_COUNTED } = require("../constants/status");
 const { isEditor } = require("../constants/roles");
 const {
-  INSPECT_RESULTS, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf
+  INSPECT_RESULTS, NOTE_REQUIRED, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf
 } = require("../services/inspection.service");
 
 const fail = (res, code, message) => res.status(code).json({ success: false, message });
@@ -64,6 +64,7 @@ async function inspectionDto(inspection, user, { withItems = true } = {}) {
     // all = เห็นทุกชิ้น, mine = เฉพาะของที่ถือครอง
     scope: viewAll ? "all" : "mine",
     results: INSPECT_RESULTS,
+    noteRequired: NOTE_REQUIRED,
     items: items.map((it) => itemDto(it, inspection, user))
   };
 }
@@ -185,6 +186,8 @@ exports.submitItem = async (req, res) => {
 
     const { assetId, status, note } = req.body || {};
     if (!INSPECT_RESULTS.includes(status)) return fail(res, 400, "ผลตรวจไม่ถูกต้อง");
+    const cleanNote = String(note || "").trim().slice(0, 500);
+    if (NOTE_REQUIRED.includes(status) && !cleanNote) return fail(res, 400, "ผลนี้ต้องระบุหมายเหตุ");
     if (!isId(assetId)) return fail(res, 404, "ไม่พบครุภัณฑ์ในรอบนี้");
 
     const item = await InspectionItem.findOne({ inspection: inspection._id, asset: assetId });
@@ -193,7 +196,7 @@ exports.submitItem = async (req, res) => {
 
     const now = new Date();
     item.result = status;
-    item.note = note ? String(note).slice(0, 500) : item.note;
+    item.note = cleanNote;
     item.checkedBy = req.user.userId;
     item.checkedByName = req.user.name || req.user.username;
     item.checkedAt = now;
@@ -204,14 +207,20 @@ exports.submitItem = async (req, res) => {
     const asset = await Asset.findById(assetId);
     if (asset) {
       const before = asset.status;
+      const noteBefore = asset.note || "";
       asset.status = status;
       asset.lastInspectedAt = now;
+      // หมายเหตุจากการตรวจ (เช่น จำหน่ายเมื่อ.../หาไม่พบเพราะ...) เก็บที่ตัวครุภัณฑ์ด้วย
+      if (cleanNote) asset.note = cleanNote;
       await asset.save();
-      if (before !== status) {
+      const changes = [];
+      if (before !== status) changes.push({ field: "status", oldValue: before, newValue: status });
+      if (cleanNote && cleanNote !== noteBefore) changes.push({ field: "note", oldValue: noteBefore, newValue: cleanNote });
+      if (changes.length) {
         await AssetHistory.create({
           asset: asset._id,
           action: "inspect",
-          changes: [{ field: "status", oldValue: before, newValue: status }],
+          changes,
           changedBy: req.user.userId,
           changedByName: req.user.name || req.user.username
         });
@@ -286,13 +295,15 @@ exports.bulkRoom = async (req, res) => {
     const { room, status = "ok" } = req.body || {};
     if (typeof room !== "string") return fail(res, 400, "ระบุห้อง");
     if (!INSPECT_RESULTS.includes(status)) return fail(res, 400, "ผลตรวจไม่ถูกต้อง");
+    const note = String(req.body?.note || "").trim().slice(0, 500);
+    if (NOTE_REQUIRED.includes(status) && !note) return fail(res, 400, "ผลนี้ต้องระบุหมายเหตุ");
 
     const items = await InspectionItem.find({ inspection: inspection._id, "snapshot.room": room, result: null });
     if (!items.length) return res.json({ success: true, updated: 0 });
 
     const now = new Date();
     const who = { checkedBy: req.user.userId, checkedByName: req.user.name || req.user.username, checkedAt: now, method: "committee" };
-    await InspectionItem.updateMany({ _id: { $in: items.map((i) => i._id) } }, { result: status, ...who });
+    await InspectionItem.updateMany({ _id: { $in: items.map((i) => i._id) } }, { result: status, ...who, ...(note && { note }) });
 
     // อัปเดตสถานะครุภัณฑ์ + บันทึกประวัติเฉพาะชิ้นที่สถานะเปลี่ยน
     const assetIds = items.map((i) => i.asset);

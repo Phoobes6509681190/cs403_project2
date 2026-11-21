@@ -34,7 +34,8 @@ export function formToPayload(form) {
   return { ...rest, location: { building, floor, room: roomNo, label: room } }
 }
 
-export default function AssetForm({ id, form, setForm, onSubmit, options = {}, users = [] }) {
+// limited = กรรมการตรวจนับ: แก้ได้เฉพาะช่องรายละเอียด (เลข/งบ/ราคา/สถานะ ล็อกไว้ — สถานะเปลี่ยนผ่านผลตรวจ)
+export default function AssetForm({ id, form, setForm, onSubmit, options = {}, users = [], limited = false }) {
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }))
   const setLocPart = (key) => (value) =>
     setForm((f) => {
@@ -44,7 +45,12 @@ export default function AssetForm({ id, form, setForm, onSubmit, options = {}, u
 
   return (
     <form id={id} onSubmit={onSubmit} className="grid grid-cols-2 gap-3">
-      <Field label="เลขครุภัณฑ์" placeholder="เช่น วทท-8พ-69-1/70" required value={form.code} onChange={(e) => set('code')(e.target.value)} />
+      {limited && (
+        <p className="col-span-2 text-[12px] text-muted rounded-xl bg-surface2 px-3 py-2">
+          แก้ไขในฐานะกรรมการตรวจนับ — เติมข้อมูลที่ขาดได้ ส่วนเลขครุภัณฑ์ งบประมาณ ราคา และสถานะ แก้ได้เฉพาะเจ้าหน้าที่
+        </p>
+      )}
+      <Field label="เลขครุภัณฑ์" placeholder="เช่น วทท-8พ-69-1/70" required readOnly={limited} value={form.code} onChange={(e) => set('code')(e.target.value)} />
       <Field label="ชื่อครุภัณฑ์" required value={form.name} onChange={(e) => set('name')(e.target.value)} />
       <Combobox label="ยี่ห้อ" allowCreate value={form.brand} onChange={set('brand')} options={options.brand} />
       <Combobox label="รุ่น" allowCreate value={form.model} onChange={set('model')} options={options.model} />
@@ -61,7 +67,7 @@ export default function AssetForm({ id, form, setForm, onSubmit, options = {}, u
         readOnly
         tabIndex={-1}
       />
-      <Combobox
+      {!limited && <Combobox
         label="บัญชีผู้ถือครอง (ถ้ามี)"
         value={form.holderUser || ''}
         emptyLabel="— ไม่ผูกบัญชี —"
@@ -70,8 +76,9 @@ export default function AssetForm({ id, form, setForm, onSubmit, options = {}, u
           setForm((f) => ({ ...f, holderUser: v, owner: f.owner || u?.name || '' }))
         }}
         options={users.map((u) => ({ value: u.id, label: u.name || u.username }))}
-      />
-      <Combobox label="ผู้ถือครอง / ผู้รับผิดชอบ" allowCreate value={form.owner} onChange={set('owner')} options={options.owner} />
+      />}
+      <Combobox label="ผู้ถือครอง / ผู้รับผิดชอบ" className={limited ? 'col-span-2' : ''} allowCreate value={form.owner} onChange={set('owner')} options={options.owner} />
+      {!limited && <>
       <Combobox
         label="งบประมาณ"
         allowCreate
@@ -88,6 +95,7 @@ export default function AssetForm({ id, form, setForm, onSubmit, options = {}, u
         onChange={(e) => set('status')(e.target.value)}
         options={STATUS_OPTIONS.map((s) => ({ value: s.key, label: s.label }))}
       />
+      </>}
       <Field
         label="หมายเหตุ"
         className="col-span-2"

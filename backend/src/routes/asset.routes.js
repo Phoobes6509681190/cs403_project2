@@ -25,7 +25,7 @@ router.post("/qr-printed", editor, asset.markQrPrinted);
 router.post("/bulk-delete", admin, asset.bulkDelete);
 router.get("/:id", asset.getAsset);
 router.get("/:id/history", asset.getAssetHistory);
-router.put("/:id", editor, asset.updateAsset);
+router.put("/:id", asset.updateAsset); // สิทธิ์ละเอียดใน controller (ผู้แก้ไข / กรรมการรอบที่เปิด)
 router.delete("/:id", admin, asset.deleteAsset);
 router.post("/:id/restore", admin, asset.restoreAsset);
 router.delete("/:id/permanent", admin, asset.purgeAsset);
