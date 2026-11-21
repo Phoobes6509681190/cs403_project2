@@ -5,9 +5,9 @@ import Icon from './icon'
 import { STATUS } from '../data/statusConfig'
 import { nf } from '../utils/format'
 
-export function Card({ className = '', children, style }) {
+export function Card({ className = '', children, style, id }) {
   return (
-    <section className={`bg-surface border border-line rounded-3xl ${className}`} style={style}>{children}</section>
+    <section id={id} className={`bg-surface border border-line rounded-3xl ${className}`} style={style}>{children}</section>
   )
 }
 

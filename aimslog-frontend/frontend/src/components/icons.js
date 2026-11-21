@@ -70,6 +70,11 @@ export const ICONS = {
     { tag: 'path', d: 'M16 8.5a3 3 0 1 1 3.3 5.9' },
     { tag: 'path', d: 'M14.5 14.2c2.6.2 4.7 1.8 5 5.8' },
   ],
+  activity: [{ tag: 'path', d: 'M3 12h4l3-8 4 16 3-8h4' }],
+  book: [
+    { tag: 'path', d: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z' },
+    { tag: 'path', d: 'M4 19a2 2 0 0 1 2-2h13M9 7h6' },
+  ],
   shield: [
     { tag: 'path', d: 'M12 3l7 3v6c0 5-3.4 8.4-7 9-3.6-.6-7-4-7-9V6l7-3Z' },
     { tag: 'path', d: 'm9 12 2 2 4-4' },

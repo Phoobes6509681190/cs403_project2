@@ -9,6 +9,8 @@ export const NAV = [
   { key: 'committee', label: 'แต่งตั้งกรรมการ', icon: 'users', path: '/inspection/committee', roles: ['admin', 'staff'] },
   { key: 'reports', label: 'รายงาน', icon: 'file', path: '/reports', roles: ['admin', 'staff', 'user'] },
   { key: 'users', label: 'จัดการผู้ใช้', icon: 'shield', path: '/users', roles: ['admin'] },
+  { key: 'activity', label: 'บันทึกกิจกรรม', icon: 'activity', path: '/activity', roles: ['admin'] },
   { key: 'loginLogs', label: 'ประวัติการเข้าใช้', icon: 'history', path: '/login-logs', roles: ['admin'] },
+  { key: 'manual', label: 'คู่มือการใช้งาน', icon: 'book', path: '/manual', roles: ['admin', 'staff', 'user'] },
   { key: 'trash', label: 'ถังขยะ / สำรองข้อมูล', icon: 'trash', path: '/trash', roles: ['admin'] },
 ]

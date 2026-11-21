@@ -141,6 +141,7 @@ test("ผู้ใช้ (staff) แก้ไขได้แต่ลบ/ถั�
     ["GET", "/assets/trash"],
     ["POST", "/users", { username: "x", name: "x", password: "12345678" }],
     ["GET", "/login-logs"],
+    ["GET", "/activity"],
     ["GET", "/backup"]
   ]) {
     const r = await fetch(`${base}${path}`, { method, headers: h, body: body ? JSON.stringify(body) : undefined });

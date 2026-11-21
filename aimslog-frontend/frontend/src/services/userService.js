@@ -31,3 +31,8 @@ export function getLoginLogs(params = {}) {
   // params: { username, success, page, perPage }
   return api.get('/login-logs', { params }).then((res) => res.data)
 }
+
+// บันทึกกิจกรรม (ผู้ดูแลระบบ) — params: { action, by, q, from, to, page, perPage }
+export function getActivity(params = {}) {
+  return api.get('/activity', { params }).then((res) => res.data)
+}
