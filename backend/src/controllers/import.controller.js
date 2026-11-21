@@ -225,6 +225,8 @@ exports.commit = async (req, res) => {
           };
         } else asset[d.field] = d.incoming;
       }
+      // เก็บค่าดิบจากไฟล์ล่าสุดไว้ด้วย (คอลัมน์อื่นที่ไม่ได้จับคู่ก็ยังดูได้ในหน้ารายละเอียด)
+      asset.legacy = { ...x.row.raw, _row: x.row.row, _sheet: x.row.sheet, _file: req.file.originalname, _importedAt: new Date() };
       await asset.save();
       await AssetHistory.create({
         asset: asset._id,
@@ -256,7 +258,7 @@ exports.commit = async (req, res) => {
 // GET /api/assets/import/template — ดาวน์โหลดไฟล์ Template
 exports.template = (req, res) => {
   const XLSX = require("xlsx");
-  const headers = ["ตึก/อาคาร", "ชั้น", "ห้อง", "ระบุ สถานที่ใช้งาน", "สภาพ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์", "ยี่ห้อ", "ผู้ถือครอง"];
+  const headers = ["ตึก/อาคาร", "ชั้น", "ห้อง", "สถานที่ใช้งาน", "สภาพ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์", "ยี่ห้อ", "ผู้ถือครอง"];
   const example = ["บร.2", "1", "107", "บร.2 ชั้น 1 ห้อง 107", "ปกติ", "วทท-8พ-57-1/80", "เทคโนโลยีสารสนเทศเพื่อการเรียนการสอน", "DELL", ""];
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(10, h.length + 4) }));

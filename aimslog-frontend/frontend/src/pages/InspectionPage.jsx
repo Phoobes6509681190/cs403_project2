@@ -1,4 +1,3 @@
-import { canEdit } from '../data/roles'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -126,7 +125,7 @@ export default function InspectionPage() {
       <div className="space-y-4">
       <Card className="p-8">
         <EmptyState message="ยังไม่มีรอบตรวจนับที่เปิดอยู่ในขณะนี้" />
-        {canEdit(role) && (
+        {role === 'admin' && (
           <div className="text-center">
             <Link to="/inspection/committee">
               <Btn variant="primary">เริ่มรอบตรวจนับใหม่</Btn>

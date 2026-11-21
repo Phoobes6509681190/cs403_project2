@@ -300,7 +300,7 @@ export default function AssetImportPage() {
               <table className="w-full min-w-[1100px] text-[12px]">
                 <thead className="sticky top-0 bg-surface z-10">
                   <tr className="text-muted border-b border-line">
-                    {['แถว', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
+                    {['แถว', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>

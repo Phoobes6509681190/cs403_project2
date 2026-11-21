@@ -142,6 +142,8 @@ export default function AssetDetailPage() {
         )}
       </Card>
 
+      {asset.legacy?.columns?.length > 0 && <LegacyCard legacy={asset.legacy} />}
+
       {asset.inspection && (
         <Card className="p-4">
           <h3 className="font-semibold mb-1">ตรวจนับรอบปี {asset.inspection.budgetYear}</h3>
@@ -208,5 +210,36 @@ export default function AssetDetailPage() {
         )}
       </Card>
     </div>
+  )
+}
+
+// คอลัมน์ทั้งหมดจากไฟล์ Excel ของคณะ (รวมคอลัมน์ที่ระบบไม่ได้ใช้ เช่น ผู้ขาย เลขที่ตรวจรับ Serial วันที่ มูลค่า)
+// เก็บค่าดิบไว้ตอนนำเข้า ไม่ถูกแปลง — ใช้อ้างอิงกับไฟล์ต้นฉบับ
+function LegacyCard({ legacy }) {
+  const [open, setOpen] = useState(false)
+  const cols = open ? legacy.columns : legacy.columns.slice(0, 8)
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <h3 className="font-semibold">ข้อมูลจากไฟล์ Excel</h3>
+        <p className="text-[11px] text-faint">
+          {[legacy.file, legacy.sheet && `ชีต ${legacy.sheet}`, legacy.row && `แถว ${legacy.row}`].filter(Boolean).join(' · ')}
+          {legacy.importedAt && ` · นำเข้า ${formatDateTH(legacy.importedAt)}`}
+        </p>
+      </div>
+      <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[13px]">
+        {cols.map((c) => (
+          <div key={c.label} className="min-w-0">
+            <dt className="text-faint text-[11px]">{c.label}</dt>
+            <dd className="break-words">{c.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {legacy.columns.length > 8 && (
+        <button onClick={() => setOpen((v) => !v)} className="mt-3 text-[12px] text-brand hover:underline">
+          {open ? 'ย่อ' : `ดูทั้งหมด ${legacy.columns.length} คอลัมน์`}
+        </button>
+      )}
+    </Card>
   )
 }

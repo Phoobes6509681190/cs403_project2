@@ -5,7 +5,7 @@ import { STATUS_OPTIONS } from '../data/statusConfig'
 // ช่องที่ใช้กรอง/เรียง/ค้นหา (ตึก ชั้น ห้อง ประเภท ยี่ห้อ รุ่น ผู้ถือครอง) เป็น dropdown ที่พิมพ์ค้นหาได้
 // เลือกจากค่าที่มีอยู่ หรือกด "+ เพิ่ม" ชัด ๆ เมื่อเป็นค่าใหม่ — กันพิมพ์ต่างกันนิดเดียวจนกรองไม่เจอ
 
-// ประกอบ "ระบุ สถานที่ใช้งาน" จาก ตึก/ชั้น/ห้อง (รูปแบบเดียวกับไฟล์ Excel ของคณะ)
+// ประกอบ "สถานที่ใช้งาน" จาก ตึก/ชั้น/ห้อง (รูปแบบเดียวกับไฟล์ Excel ของคณะ)
 export const composeLocation = (f) =>
   [f.building, f.floor && `ชั้น ${f.floor}`, f.roomNo && `ห้อง ${f.roomNo}`].filter(Boolean).join(' ')
 
@@ -61,7 +61,7 @@ export default function AssetForm({ id, form, setForm, onSubmit, options = {}, u
         <Combobox label="ห้อง" allowCreate value={form.roomNo} onChange={setLocPart('roomNo')} options={options.roomNo} />
       </div>
       <Field
-        label="ระบุ สถานที่ใช้งาน (ระบบสร้างจากตึก/ชั้น/ห้อง)"
+        label="สถานที่ใช้งาน (ระบบสร้างจากตึก/ชั้น/ห้อง)"
         className="col-span-2"
         value={form.room}
         readOnly

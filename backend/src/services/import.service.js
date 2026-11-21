@@ -12,7 +12,7 @@ const FIELDS = [
   { key: "building", label: "ตึก/อาคาร", aliases: ["ตึก/อาคาร", "อาคาร", "ตึก"] },
   { key: "floor", label: "ชั้น", aliases: ["ชั้น"] },
   { key: "room", label: "ห้อง", aliases: ["ห้อง"] },
-  { key: "locationLabel", label: "ระบุสถานที่ใช้งาน", aliases: ["ระบุสถานที่ใช้งาน", "สถานที่ใช้งาน", "สถานที่"] },
+  { key: "locationLabel", label: "สถานที่ใช้งาน", aliases: ["ระบุสถานที่ใช้งาน", "สถานที่ใช้งาน", "สถานที่"] },
   { key: "holderName", label: "ผู้ถือครอง / ผู้รับผิดชอบ", aliases: ["ผู้ถือครอง", "ผู้รับผิดชอบ", "ผู้ดูแล", "ผู้ใช้งาน"] },
   { key: "category", label: "ประเภท", aliases: ["ประเภท", "ประเภท (FSN)", "หมวด"] },
   { key: "brand", label: "ยี่ห้อ", aliases: ["ยี่ห้อ"] },

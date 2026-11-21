@@ -55,11 +55,11 @@ export default function App() {
             <Route element={<RoleRoute allow={['admin', 'staff']} />}>
               <Route path="/assets/import" element={<AssetImportPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />
-              <Route path="/inspection/committee" element={<CommitteePage />} />
             </Route>
             {/* ผู้ดูแลระบบเท่านั้น */}
             <Route element={<RoleRoute allow={['admin']} />}>
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/inspection/committee" element={<CommitteePage />} />
               <Route path="/trash" element={<TrashPage />} />
               <Route path="/login-logs" element={<LoginLogsPage />} />
               <Route path="/activity" element={<ActivityPage />} />

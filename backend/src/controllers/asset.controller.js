@@ -28,6 +28,18 @@ const TRACKED = [
   ["note", (a) => a.note || ""]
 ];
 
+// ค่าดิบทุกคอลัมน์จากไฟล์ Excel (เก็บไว้ตอนนำเข้า) — ส่งเฉพาะหน้ารายละเอียด ตัดช่องว่าง/"-"
+function legacyDto(legacy) {
+  if (!legacy || typeof legacy !== "object") return null;
+  const columns = Object.entries(legacy)
+    .filter(([k, v]) => !k.startsWith("_") && v !== null && v !== undefined && !["", "-"].includes(String(v).trim()))
+    .map(([label, value]) => ({ label, value: String(value) }));
+  return {
+    file: legacy._file || "", sheet: legacy._sheet || "", row: legacy._row || null, importedAt: legacy._importedAt || null,
+    columns
+  };
+}
+
 // กรรมการตรวจนับ (ที่ไม่ใช่ผู้ดูแล/ผู้ใช้) แก้ข้อมูลที่ขาดได้ระหว่างรอบที่เปิด — เฉพาะช่องรายละเอียด
 // ห้ามแก้เลขครุภัณฑ์ งบ ราคา สถานะ (สถานะต้องเปลี่ยนผ่านผลตรวจ)
 const COMMITTEE_FIELDS = ["name", "brand", "model", "category", "location", "locationLabel", "holderName", "note"];
@@ -167,7 +179,7 @@ exports.getAsset = async (req, res) => {
         };
       }
     }
-    res.json({ ...toAssetDto(asset), inspection });
+    res.json({ ...toAssetDto(asset), legacy: legacyDto(asset.legacy), inspection });
   } catch (error) {
     fail(res, 500, error.message);
   }

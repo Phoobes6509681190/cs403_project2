@@ -22,7 +22,7 @@ const COLUMNS = [
   { label: 'ตึก/อาคาร', sort: 'building', filter: 'building', opt: 'building' },
   { label: 'ชั้น', sort: 'floor', filter: 'floor', opt: 'floor' },
   { label: 'ห้อง', sort: 'roomNo', filter: 'roomNo', opt: 'roomNo' },
-  { label: 'ระบุ สถานที่ใช้งาน', sort: 'room', filter: 'room', opt: 'room' },
+  { label: 'สถานที่ใช้งาน', sort: 'room', filter: 'room', opt: 'room' },
   { label: 'สภาพ', sort: 'status', filter: 'status' },
   { label: 'รหัสสินทรัพย์อ้างอิง', sort: 'code' },
   { label: 'ชื่อสินทรัพย์', sort: 'name' },
