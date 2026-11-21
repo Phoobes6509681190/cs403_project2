@@ -180,7 +180,7 @@ exports.deleteAsset = async (req, res) => {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
     const asset = await Asset.findOneAndUpdate(
       { _id: req.params.id, isDeleted: false },
-      { isDeleted: true },
+      { isDeleted: true, deletedBy: req.user?.userId },
       { returnDocument: "after" }
     );
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
@@ -215,7 +215,7 @@ exports.bulkDelete = async (req, res) => {
     const targets = await Asset.find(filter, { _id: 1 }).lean();
     if (!targets.length) return res.json({ success: true, deleted: 0 });
     const ids = targets.map((a) => a._id);
-    await Asset.updateMany({ _id: { $in: ids }, isDeleted: false }, { isDeleted: true });
+    await Asset.updateMany({ _id: { $in: ids }, isDeleted: false }, { isDeleted: true, deletedBy: req.user?.userId });
     await AssetHistory.insertMany(ids.map((id) => ({ asset: id, action: "delete", ...actor(req) })));
     res.json({ success: true, deleted: ids.length });
   } catch (error) {
@@ -237,7 +237,7 @@ exports.getAssetHistory = async (req, res) => {
 // GET /api/assets/trash (admin) — รายการที่ถูกลบ (soft delete) ล่าสุดก่อน
 exports.getTrash = async (req, res) => {
   try {
-    const items = await Asset.find({ isDeleted: true }).sort({ updatedAt: -1 }).limit(500).lean();
+    const items = await Asset.find({ isDeleted: true, ...ownTrash(req) }).sort({ updatedAt: -1 }).limit(500).lean();
     const ids = items.map((a) => a._id);
     const dels = await AssetHistory.find({ asset: { $in: ids }, action: "delete" }).sort({ createdAt: -1 }).lean();
     const lastDel = new Map();
@@ -260,7 +260,7 @@ exports.restoreAsset = async (req, res) => {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
     const asset = await Asset.findOneAndUpdate(
       { _id: req.params.id, isDeleted: true },
-      { isDeleted: false },
+      { isDeleted: false, $unset: { deletedBy: 1 } },
       { returnDocument: "after" }
     );
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
@@ -273,6 +273,9 @@ exports.restoreAsset = async (req, res) => {
 
 // ลบถาวรจากถังขยะ (admin) — ลบได้เฉพาะรายการที่อยู่ในถังขยะแล้ว และกู้คืนไม่ได้อีก
 // ผลตรวจนับย้อนหลังยังอยู่ (เก็บสำเนาข้อมูลไว้ใน InspectionItem) รายงานปีเก่าจึงไม่เปลี่ยน
+// ถังขยะเห็นเฉพาะของที่ตัวเองลบ (ของเก่าที่ไม่รู้ว่าใครลบ ทุกคนเห็น)
+const ownTrash = (req) => ({ $or: [{ deletedBy: req.user?.userId }, { deletedBy: { $exists: false } }, { deletedBy: null }] });
+
 async function purge(filter) {
   const assets = await Asset.find({ ...filter, isDeleted: true }, { _id: 1 }).lean();
   const ids = assets.map((a) => a._id);
@@ -298,7 +301,7 @@ exports.purgeAsset = async (req, res) => {
 // DELETE /api/assets/trash — ล้างถังขยะทั้งหมด
 exports.emptyTrash = async (req, res) => {
   try {
-    res.json({ success: true, deleted: await purge({}) });
+    res.json({ success: true, deleted: await purge(ownTrash(req)) });
   } catch (error) {
     fail(res, 500, error.message);
   }

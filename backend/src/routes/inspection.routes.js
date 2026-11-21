@@ -1,10 +1,11 @@
 const express = require("express");
-const { protect, requireRole } = require("../middleware/auth.middleware");
+const { protect, requireEditor } = require("../middleware/auth.middleware");
 const c = require("../controllers/inspection.controller");
 
 const router = express.Router();
 router.use(protect);
-const admin = requireRole("admin");
+// เปิด/ปิดรอบ และแต่งตั้งกรรมการ: ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่
+const admin = requireEditor;
 
 router.get("/", c.list);
 router.get("/active", c.active);

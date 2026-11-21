@@ -49,11 +49,14 @@ export default function App() {
             <Route path="/assets" element={<AssetListPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
 
-            {/* เฉพาะ Admin เท่านั้น (ดู RoleRoute.jsx) */}
-            <Route element={<RoleRoute allow={['admin']} />}>
+            {/* ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่ (ดู RoleRoute.jsx) */}
+            <Route element={<RoleRoute allow={['admin', 'staff']} />}>
               <Route path="/assets/import" element={<AssetImportPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />
               <Route path="/inspection/committee" element={<CommitteePage />} />
+            </Route>
+            {/* ผู้ดูแลระบบเท่านั้น */}
+            <Route element={<RoleRoute allow={['admin']} />}>
               <Route path="/users" element={<UsersPage />} />
               <Route path="/trash" element={<TrashPage />} />
               <Route path="/login-logs" element={<LoginLogsPage />} />

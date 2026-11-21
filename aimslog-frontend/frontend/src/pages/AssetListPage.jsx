@@ -1,3 +1,4 @@
+import { canEdit as canEditRole, canDelete } from '../data/roles'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getUsers } from '../services/userService'
@@ -24,7 +25,8 @@ const emptyForm = {
 
 export default function AssetListPage() {
   const { role } = useAuth()
-  const canEdit = role === 'admin'
+  const canEdit = canEditRole(role)
+  const canRemove = canDelete(role) // ลบได้เฉพาะผู้ดูแลระบบ
   const toast = useToast()
 
   const [q, setQ] = useState('')
@@ -200,9 +202,11 @@ export default function AssetListPage() {
                 <Btn>พิมพ์ QR ที่เลือก ({nf(selected.length)})</Btn>
               </Link>
             )}
-            <Btn variant="ghost" onClick={() => setBulkOpen(true)}>
-              <span className="text-bad">ลบที่เลือก ({nf(selCount)})</span>
-            </Btn>
+            {canRemove && (
+              <Btn variant="ghost" onClick={() => setBulkOpen(true)}>
+                <span className="text-bad">ลบที่เลือก ({nf(selCount)})</span>
+              </Btn>
+            )}
             <button onClick={clearSel} className="text-[12px] text-muted hover:text-ink px-1">ล้างที่เลือก</button>
           </>
         )}
@@ -349,9 +353,11 @@ export default function AssetListPage() {
                               <button onClick={() => openEdit(a)} className="p-1.5 rounded-lg hover:text-brand hover:bg-brandsoft" title="แก้ไข">
                                 <Icon name="edit" />
                               </button>
-                              <button onClick={() => setToDelete(a)} className="p-1.5 rounded-lg hover:text-bad hover:bg-badsoft" title="ลบ">
-                                <Icon name="trash" />
-                              </button>
+                              {canRemove && (
+                                <button onClick={() => setToDelete(a)} className="p-1.5 rounded-lg hover:text-bad hover:bg-badsoft" title="ลบ">
+                                  <Icon name="trash" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

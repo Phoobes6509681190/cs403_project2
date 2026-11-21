@@ -1,3 +1,4 @@
+import { roleLabel } from '../data/roles'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, Btn, Field, Avatar, LoadingState, ErrorState, useToast } from '../components/UI'
@@ -123,7 +124,7 @@ export default function CommitteePage() {
                   <p className="text-[13px] font-medium">{u.name}</p>
                   <p className="text-[11px] text-faint">{u.position || `@${u.username}`}</p>
                 </div>
-                {u.role === 'admin' && <span className="text-[11px] text-warn">Admin</span>}
+                {u.role !== 'user' && <span className="text-[11px] text-warn">{roleLabel(u.role)}</span>}
               </label>
             ))}
             {shown.length === 0 && <p className="px-4 py-6 text-center text-muted text-[13px]">ไม่พบรายชื่อ</p>}

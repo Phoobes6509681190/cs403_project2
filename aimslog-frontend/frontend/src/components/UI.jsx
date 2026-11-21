@@ -1,3 +1,4 @@
+import { roleLabel } from '../data/roles'
 import { createContext, useCallback, useContext, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './icon'
@@ -44,15 +45,11 @@ export function StatusPill({ status }) {
 }
 
 export function RolePill({ role }) {
-  const isAdmin = role === 'admin'
+  const tone = role === 'admin' ? 'bg-brandsoft text-brandink' : role === 'staff' ? 'bg-oksoft text-ok' : 'bg-surface2 text-muted'
   return (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-        isAdmin ? 'bg-brandsoft text-brandink' : 'bg-surface2 text-muted'
-      }`}
-    >
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${tone}`}>
       <Icon name="shield" className="w-3 h-3" />
-      {isAdmin ? 'ผู้ดูแลระบบ' : 'ผู้ใช้งาน'}
+      {roleLabel(role)}
     </span>
   )
 }

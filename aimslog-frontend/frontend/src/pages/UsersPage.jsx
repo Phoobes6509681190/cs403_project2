@@ -1,3 +1,4 @@
+import { ROLES, ROLE_OPTIONS, roleLabel } from '../data/roles'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, Btn, Field, SelectField, Modal, ConfirmDialog, Avatar, RolePill, LoadingState, ErrorState, useToast } from '../components/UI'
 import { getUsers, createUser, updateUser, resetUserPassword, resetUserMfa, unlockUser } from '../services/userService'
@@ -122,20 +123,24 @@ export default function UsersPage() {
               <RolePill role={u.role} />
               {!self && (
                 <div className="flex flex-wrap gap-2">
-                  <Btn
-                    onClick={() =>
+                  <select
+                    aria-label="สิทธิ์"
+                    value={u.role}
+                    onChange={(e) => {
+                      const role = e.target.value
                       setConfirm({
                         user: u,
-                        patch: { role: u.role === 'admin' ? 'user' : 'admin' },
+                        patch: { role },
                         title: 'เปลี่ยนสิทธิ์',
-                        message: u.role === 'admin'
-                          ? `ลดสิทธิ์ ${u.name} เป็นผู้ใช้ทั่วไป?`
-                          : `ให้ ${u.name} เป็นเจ้าหน้าที่พัสดุ (Admin) — แก้ไข/ลบครุภัณฑ์ได้ทั้งหมด?`,
+                        message: `เปลี่ยนสิทธิ์ของ ${u.name} เป็น "${roleLabel(role)}"? (${ROLES[role].hint})`,
                       })
-                    }
+                    }}
+                    className="rounded-full border border-line bg-surface px-3 py-2 text-[13px] hover:border-ink/40"
                   >
-                    {u.role === 'admin' ? 'ลดเป็นผู้ใช้ทั่วไป' : 'ตั้งเป็น Admin'}
-                  </Btn>
+                    {Object.values(ROLES).map((r) => (
+                      <option key={r.key} value={r.key}>{r.label}</option>
+                    ))}
+                  </select>
                   <Btn onClick={() => setResetFor(u)}>ตั้งรหัสใหม่</Btn>
                   {u.locked && (
                     <Btn onClick={() => setConfirm({ user: u, action: 'unlock', title: 'ปลดล็อกบัญชี', message: `ปลดล็อก ${u.name} ให้ลองเข้าสู่ระบบได้ทันที?` })}>
@@ -194,10 +199,11 @@ export default function UsersPage() {
           <Field label="ชื่อผู้ใช้ (ใช้ login)" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
           <Field label="รหัสผ่านเริ่มต้น" type="text" required minLength={MIN} hint={`อย่างน้อย ${MIN} ตัว`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <SelectField
+            className="sm:col-span-2"
             label="สิทธิ์"
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value })}
-            options={[{ value: 'user', label: 'ผู้ใช้ทั่วไป' }, { value: 'admin', label: 'เจ้าหน้าที่พัสดุ (Admin)' }]}
+            options={ROLE_OPTIONS}
           />
         </form>
       </Modal>

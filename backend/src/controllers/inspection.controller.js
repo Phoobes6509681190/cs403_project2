@@ -5,6 +5,7 @@ const Inspection = require("../models/Inspection");
 const InspectionItem = require("../models/InspectionItem");
 const User = require("../models/User");
 const { NOT_COUNTED } = require("../constants/status");
+const { isEditor } = require("../constants/roles");
 const {
   INSPECT_RESULTS, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf
 } = require("../services/inspection.service");
@@ -56,7 +57,7 @@ async function inspectionDto(inspection, user, { withItems = true } = {}) {
     closedBy: inspection.closedBy ? { id: String(inspection.closedBy), name: nameOf(inspection.closedBy) } : null,
     closeReason: inspection.closeReason || "",
     // ปิดรอบ: Admin ทุกคนกดได้ แต่ถ้าไม่ใช่คนเปิดรอบต้องใส่เหตุผล
-    canClose: inspection.status === "open" && user.role === "admin",
+    canClose: inspection.status === "open" && isEditor(user),
     closeNeedsReason: !isOwner,
     committee: committeeUsers.map((u) => ({ id: String(u._id), name: u.name, username: u.username })),
     isCommittee: committee,

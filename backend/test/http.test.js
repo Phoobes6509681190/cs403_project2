@@ -131,3 +131,19 @@ test("ประวัติ login / รีเซ็ต MFA / ปลดล็อ�
   assert.strictEqual((await fetch(`${base}/users/64b000000000000000000002/mfa-reset`, { method: "PUT", headers: h })).status, 403);
   assert.strictEqual((await fetch(`${base}/users/64b000000000000000000002/unlock`, { method: "PUT", headers: h })).status, 403);
 });
+
+test("ผู้ใช้ (staff) แก้ไขได้แต่ลบ/ถังขยะ/จัดการผู้ใช้/ประวัติเข้าใช้ไม่ได้ -> 403", async () => {
+  const h = { Authorization: `Bearer ${tokenFor("staff")}`, "Content-Type": "application/json" };
+  const id = "64b0000000000000000000aa";
+  for (const [method, path, body] of [
+    ["DELETE", `/assets/${id}`],
+    ["POST", "/assets/bulk-delete", { ids: [id] }],
+    ["GET", "/assets/trash"],
+    ["POST", "/users", { username: "x", name: "x", password: "12345678" }],
+    ["GET", "/login-logs"],
+    ["GET", "/backup"]
+  ]) {
+    const r = await fetch(`${base}${path}`, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
+    assert.strictEqual(r.status, 403, `${method} ${path}`);
+  }
+});

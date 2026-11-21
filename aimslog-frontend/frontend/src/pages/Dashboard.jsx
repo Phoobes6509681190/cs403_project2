@@ -40,7 +40,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      {user?.role === 'admin' && !user?.mfaEnabled && (
+      {(user?.role === 'admin' || user?.role === 'staff') && !user?.mfaEnabled && (
         <Link to="/profile?tab=security" className="block">
           <Card className="p-4 border-warn/40 bg-warnsoft text-[13px] text-warn hover:opacity-90">
             ยังไม่ได้เปิด MFA <b>เปิดใช้ →</b>

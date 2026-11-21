@@ -12,7 +12,7 @@ const isCommittee = (inspection, user) =>
   inspection.committee.some((id) => String(id) === String(user?.userId));
 
 // เห็นรายการทั้งหมดของรอบ: กรรมการ หรือ Admin (ดูความคืบหน้าอย่างเดียว)
-const canViewAll = (inspection, user) => user?.role === "admin" || isCommittee(inspection, user);
+const canViewAll = (inspection, user) => ["admin", "staff"].includes(user?.role) || isCommittee(inspection, user);
 
 // ตรวจชิ้นนี้ได้ไหม: กรรมการรอบนี้ / ผู้ถือครองที่ผูกบัญชีไว้ (self-check)
 const canInspectItem = (inspection, item, user) =>

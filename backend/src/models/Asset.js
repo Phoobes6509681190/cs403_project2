@@ -52,7 +52,8 @@ const assetSchema = new mongoose.Schema(
     // ค่าดิบจาก Excel ทั้งแถว — "ข้อมูลเก่าอย่าลบทิ้ง"
     legacy: { type: mongoose.Schema.Types.Mixed },
 
-    isDeleted: { type: Boolean, default: false, index: true }
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" } // ถังขยะแสดงเฉพาะของที่ตัวเองลบ
   },
   { timestamps: true }
 );
