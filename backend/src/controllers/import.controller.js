@@ -258,9 +258,10 @@ exports.commit = async (req, res) => {
 // GET /api/assets/import/template — ดาวน์โหลดไฟล์ Template
 exports.template = (req, res) => {
   const XLSX = require("xlsx");
-  const headers = ["ตึก/อาคาร", "ชั้น", "ห้อง", "สถานที่ใช้งาน", "สภาพ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์", "ยี่ห้อ", "ผู้ถือครอง"];
-  const example = ["บร.2", "1", "107", "บร.2 ชั้น 1 ห้อง 107", "ปกติ", "วทท-8พ-57-1/80", "เทคโนโลยีสารสนเทศเพื่อการเรียนการสอน", "DELL", ""];
-  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+  // หัวตารางอย่างเดียว ไม่มีข้อมูลตัวอย่าง (กันแถวตัวอย่างถูกนำเข้าโดยไม่ตั้งใจ)
+  const headers = ["ตึก/อาคาร", "ชั้น", "ห้อง", "สถานที่ใช้งาน", "สภาพ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์",
+    "ยี่ห้อ", "รุ่น", "ประเภท", "ผู้ถือครอง", "แหล่งเงิน", "ราคา"];
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(10, h.length + 4) }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "ครุภัณฑ์");
