@@ -42,11 +42,15 @@
 | สัญลักษณ์ | ความหมาย |
 |---|---|
 | 🌐 | ไม่ต้อง login |
-| 👤 | ผู้ใช้ที่ login แล้วทุกคน (`user` / `admin`) |
-| 🛡️ | เฉพาะ `admin` (เจ้าหน้าที่พัสดุ) |
+| 👤 | ผู้ใช้ที่ login แล้วทุกคน (`admin` / `staff` / `user`) |
+| ✏️ | `admin` ผู้ดูแลระบบ + `staff` ผู้ใช้ (เจ้าหน้าที่พัสดุ) — เพิ่ม/แก้ไข/นำเข้า |
+| 🛡️ | เฉพาะ `admin` ผู้ดูแลระบบ — ลบ ถังขยะ ผู้ใช้ แต่งตั้งกรรมการ |
 | 🧾 | ตรวจสิทธิ์ราย "รอบตรวจนับ" — กรรมการที่ได้รับแต่งตั้ง หรือผู้ถือครองของชิ้นนั้น |
 
-> Admin **ไม่ได้เป็นกรรมการอัตโนมัติ** (คนจัดซื้อกับคนตรวจต้องเป็นคนละคน) — Admin ดูความคืบหน้าได้ แต่บันทึกผลตรวจได้เฉพาะเมื่อถูกแต่งตั้ง
+สิทธิ์มี 3 ระดับ: `admin` ผู้ดูแลระบบ · `staff` ผู้ใช้ (แก้ไขได้ ลบไม่ได้) · `user` ผู้ดูข้อมูล (ดูอย่างเดียว)
+บัญชีใหม่เริ่มเป็น `user` — ผู้ดูแลระบบเป็นคนแต่งตั้งสิทธิ์
+
+> ผู้ดูแลระบบ/ผู้ใช้ **ไม่ได้เป็นกรรมการอัตโนมัติ** (คนจัดซื้อกับคนตรวจต้องเป็นคนละคน) — ดูความคืบหน้าได้ แต่บันทึกผลตรวจได้เฉพาะเมื่อถูกแต่งตั้ง
 
 ### 1.3 รูปแบบ Error
 
@@ -69,14 +73,16 @@
 
 **สถานะครุภัณฑ์ (`status`)**
 
-| key | ความหมาย | ใช้เป็นผลตรวจนับได้ |
-|---|---|---|
-| `ok` | ปกติ | ✅ |
-| `broken` | ชำรุด (ซ่อมได้) | ✅ |
-| `disposal` | รอจำหน่าย (ซ่อมไม่ได้) | ✅ |
-| `unneeded` | หมดความจำเป็นในการใช้งาน | ✅ |
-| `missing` | ไม่พบพัสดุตามทะเบียน | ✅ |
-| `transferred` | ตัดโอน (โอนให้หน่วยงานอื่น — ไม่นับในยอดสาขา) | ❌ (Admin เปลี่ยนเอง) |
+| key | ชื่อที่แสดง (ตามไฟล์คณะ) | ใช้เป็นผลตรวจนับได้ | นับในยอดสาขา |
+|---|---|---|---|
+| `ok` | ปกติ | ✅ | ✅ |
+| `broken` | ชำรุด (เดิมแยก `disposal` รอจำหน่าย — เลิกใช้ ข้อมูลเดิมถูกแปลงเป็น `broken` ตอนเปิดเซิร์ฟเวอร์) | ✅ | ✅ |
+| `unneeded` | เสื่อมสภาพ (หมดความจำเป็น) | ✅ | ✅ |
+| `missing` | หาไม่พบ | ✅ ต้องมีหมายเหตุ | ✅ |
+| `transferred` | จำหน่ายแล้ว | ✅ ต้องมีหมายเหตุ | ❌ |
+| `duplicate` | ข้อมูลซ้ำ | ❌ | ❌ (แสดงบนจอ ไม่ออกในรายงานที่พิมพ์) |
+| `dataerror` | ข้อมูลบางส่วนผิด | ❌ | ❌ (แสดงบนจอ ไม่ออกในรายงานที่พิมพ์) |
+| `notours` | ไม่ใช่ครุภัณฑ์หน่วยงาน | ❌ | ❌ (แสดงบนจอ ไม่ออกในรายงานที่พิมพ์) |
 
 **เลขครุภัณฑ์** เช่น `วทท-8พ-57-1/80` = หน่วยงาน `วทท` · คณะ `8` · ตัวย่องบ `พ` · ปี พ.ศ. `57` · ชิ้นที่ `1` จาก `80`
 (รองรับ `-1-80` ด้วย) — **เลขซ้ำกันได้** จึงใช้ `id` เป็นตัวระบุชิ้นเสมอ
@@ -93,7 +99,8 @@
   "room": "บร.2 ชั้น 1 ห้อง 107",
   "location": { "building": "บร.2", "floor": "1", "room": "107", "label": "บร.2 ชั้น 1 ห้อง 107" },
   "owner": "อ.สมชาย", "holderUser": null,
-  "budget": "งบพิเศษ", "price": null,
+  "budget": "งบพิเศษ", "fundSource": "งบ มธ.", "price": null,
+  "note": "",
   "status": "ok",
   "acquiredAt": null, "lastInspectedAt": "2026-11-09T02:05:00.000Z",
   "createdAt": "...", "updatedAt": "..."
@@ -102,14 +109,17 @@
 
 | ฟิลด์ | ความหมาย |
 |---|---|
-| `room` | ข้อความ "ระบุ สถานที่ใช้งาน" (= `location.label`) |
+| `room` | ข้อความ "สถานที่ใช้งาน" (= `location.label`) |
 | `owner` | ชื่อผู้ถือครอง (ข้อความ — อาจารย์ที่ไม่มีบัญชีก็ใส่ได้) |
 | `holderUser` | id บัญชีผู้ถือครอง (ถ้าผูกไว้ → ยืนยันสภาพของตัวเองในรอบตรวจนับได้) |
-| `budget` | ชื่องบ ได้จากตัวย่อในเลขครุภัณฑ์ผ่านตาราง budgets |
+| `budget` | ชื่องบ ได้จากตัวย่อในเลขครุภัณฑ์ผ่านตาราง budgets (ถ้าเลขไม่มีตัวย่อ ใช้ `fundSource`) |
+| `fundSource` | "แหล่งเงิน" จากไฟล์คณะ (ตัดรหัสนำหน้า เช่น `30 - งบ มธ.` → `งบ มธ.`) |
+| `note` | หมายเหตุ (จากคอลัมน์หมายเหตุในไฟล์ หรือจากผลตรวจ จำหน่ายแล้ว/หาไม่พบ) |
+| `legacy` | (เฉพาะ `GET /assets/:id`) ทุกคอลัมน์จากไฟล์ Excel: `{ file, sheet, row, importedAt, columns: [{ label, value }] }` |
 
 ---
 
-## 2. สรุปทุก Endpoint (37)
+## 2. สรุปทุก Endpoint (48)
 
 | # | Method | Path | สิทธิ์ | หน้าที่ |
 |---|---|---|---|---|
@@ -125,26 +135,29 @@
 | 6d | POST | `/auth/mfa/disable` | 👤 | ปิด MFA (ยืนยันด้วยรหัสผ่าน) |
 | 6e | POST | `/auth/mfa/backup-codes` | 👤 | สร้างรหัสสำรองชุดใหม่ (ยืนยันด้วยรหัสผ่าน) |
 | 7 | GET | `/assets` | 👤 | รายการครุภัณฑ์ (ค้นหา / กรอง / แบ่งหน้า) |
-| 8 | POST | `/assets` | 🛡️ | เพิ่มครุภัณฑ์ |
+| 7a | GET | `/assets/options` | 👤 | ค่าที่มีอยู่ของแต่ละช่อง (ตึก ชั้น ห้อง ประเภท ยี่ห้อ รุ่น ผู้ถือครอง งบ) สำหรับ dropdown |
+| 8 | POST | `/assets` | ✏️ | เพิ่มครุภัณฑ์ |
 | 9 | GET | `/assets/:id` | 👤 | รายละเอียดครุภัณฑ์ (+ สถานะในรอบตรวจที่เปิดอยู่) |
-| 10 | PUT | `/assets/:id` | 🛡️ | แก้ไขครุภัณฑ์ (บันทึกประวัติอัตโนมัติ) |
+| 10 | PUT | `/assets/:id` | ✏️ 🧾 | แก้ไขครุภัณฑ์ (บันทึกประวัติอัตโนมัติ) |
 | 11 | DELETE | `/assets/:id` | 🛡️ | ลบ = ย้ายไปถังขยะ (soft delete) |
 | 11a | POST | `/assets/bulk-delete` | 🛡️ | ลบหลายรายการไปถังขยะ: `{ ids }` หรือ `{ all: true, query, expected }` (ทุกชิ้นตามตัวกรอง — `expected` ต้องตรงจำนวนที่พบ ไม่ตรงได้ 409) |
 | 12 | GET | `/assets/:id/history` | 👤 | ประวัติการเปลี่ยนแปลง |
 | 13 | GET | `/assets/trash` | 🛡️ | รายการในถังขยะ |
 | 14 | POST | `/assets/:id/restore` | 🛡️ | กู้คืนจากถังขยะ |
+| 14a | POST | `/assets/qr-printed` | ✏️ | ทำเครื่องหมายว่าพิมพ์สติกเกอร์ QR แล้ว `{ ids }` |
 | 15 | DELETE | `/assets/:id/permanent` | 🛡️ | ลบถาวร (เฉพาะที่อยู่ในถังขยะ) |
 | 16 | DELETE | `/assets/trash` | 🛡️ | ล้างถังขยะทั้งหมด |
-| 17 | GET | `/assets/import/template` | 🛡️ | ดาวน์โหลด Template Excel |
-| 18 | POST | `/assets/import/preview` | 🛡️ | อ่านไฟล์และเทียบกับระบบ (ยังไม่บันทึก) |
-| 19 | POST | `/assets/import` | 🛡️ | นำเข้าจริง |
+| 17 | GET | `/assets/import/template` | ✏️ | ดาวน์โหลด Template Excel |
+| 18 | POST | `/assets/import/preview` | ✏️ | อ่านไฟล์และเทียบกับระบบ (ยังไม่บันทึก) |
+| 19 | POST | `/assets/import` | ✏️ | นำเข้าจริง |
 | 20 | GET | `/budgets` | 👤 | ตารางตัวย่องบ → ชื่องบ |
-| 21 | GET | `/users` | 🛡️ | รายชื่อผู้ใช้ |
+| 21 | GET | `/users` | ✏️ | รายชื่อผู้ใช้ |
 | 22 | POST | `/users` | 🛡️ | เพิ่มผู้ใช้ |
 | 23 | PUT | `/users/:id` | 🛡️ | เปลี่ยนสิทธิ์ / ปิด-เปิดบัญชี |
 | 24 | PUT | `/users/:id/password` | 🛡️ | ตั้งรหัสผ่านใหม่ให้ผู้ใช้ |
 | 24a | PUT | `/users/:id/unlock` | 🛡️ | ปลดล็อกบัญชีที่ใส่รหัสผิดเกินกำหนด |
 | 24b | PUT | `/users/:id/mfa-reset` | 🛡️ | ปิด MFA ให้ผู้ใช้ที่ทำมือถือหาย |
+| 24d | GET | `/activity` | 🛡️ | บันทึกกิจกรรมของครุภัณฑ์ทุกชิ้น (`?action=&by=&q=&from=&to=&page=`) |
 | 24c | GET | `/login-logs` | 🛡️ | ประวัติการเข้าสู่ระบบ (`?username=&success=&page=`) |
 | 25 | GET | `/inspections` | 👤 | รายการรอบตรวจนับทั้งหมด |
 | 26 | GET | `/inspections/active` | 👤 | รอบที่เปิดอยู่ (หรือ `null`) |
@@ -152,8 +165,8 @@
 | 28 | GET | `/inspections/:id` | 👤 | รายละเอียดรอบ + รายการที่ผู้ใช้เห็นได้ |
 | 29 | GET | `/inspections/:id/progress` | 👤 | ความคืบหน้า (หน้าเว็บเรียกทุก 3 วินาที) |
 | 30 | POST | `/inspections/:id/items` | 🧾 | บันทึกผลตรวจทีละชิ้น |
-| 31 | POST | `/inspections/:id/bulk` | 🧾 | บันทึกผลเดียวกันให้ทุกชิ้นที่ยังไม่ตรวจในห้อง |
-| 32 | PUT | `/inspections/:id/close` | 🛡️ | ปิดรอบ (ล็อกผล) |
+| 31 | POST | `/inspections/:id/bulk` | 🧾 | บันทึกผลเดียวกันให้หลายชิ้นที่ยังไม่ตรวจ (ทั้งห้อง หรือติ๊กเลือก) |
+| 32 | PUT | `/inspections/:id/close` | ✏️ | ปิดรอบ (ล็อกผล) |
 | 33 | POST | `/inspections/:id/committee` | 🛡️ | เปลี่ยนรายชื่อกรรมการ |
 | 34 | GET | `/reports/summary` | 👤 | สรุปจำนวนแยกตามงบ × สถานะ |
 | 35 | GET | `/reports/detail` | 👤 | ตารางรายละเอียดทั้งหมด |
@@ -239,22 +252,24 @@ Error: `400` รหัสเดิมผิด / สั้นกว่า 8 ต�
 ```
 `rooms` / `budgets` = ตัวเลือกสำหรับ dropdown กรอง · `qrUnprinted` = จำนวนที่ยังไม่เคยพิมพ์ QR (ไม่รวมตัดโอน)
 
-#### `POST /assets/qr-printed` 🛡️
+#### `POST /assets/qr-printed` ✏️
 `{ "ids": ["…", "…"] }` → `{ "success": true, "updated": 6 }` — ทำเครื่องหมายว่าพิมพ์สติกเกอร์ QR แล้ว (`qrPrintedAt`)
 
-#### `POST /assets` 🛡️ · `PUT /assets/:id` 🛡️
+#### `POST /assets` ✏️ · `PUT /assets/:id` ✏️ 🧾
 ```json
 {
   "code": "วทท-8พ-69-1/70", "name": "คอมพิวเตอร์ตั้งโต๊ะ", "brand": "DELL", "model": "OptiPlex",
   "cat": "คอมพิวเตอร์",
   "location": { "building": "บร.2", "floor": "1", "room": "107", "label": "" },
   "owner": "อ.สมชาย", "holderUser": "<userId หรือ null>",
-  "budget": "", "price": 25000, "status": "ok"
+  "budget": "", "price": 25000, "status": "ok", "note": ""
 }
 ```
 - `budget` ว่าง → ระบบอ่านจากตัวย่อในเลขครุภัณฑ์ให้
 - `location.label` ว่าง → ระบบประกอบเป็น "บร.2 ชั้น 1 ห้อง 107" ให้
-- การแก้ไขที่เปลี่ยน **สถานะ / สถานที่ / ผู้ถือครอง** ถูกบันทึกเป็นประวัติ (ค่าเดิม → ค่าใหม่ + ชื่อผู้แก้จาก JWT)
+- ทุกช่องที่เปลี่ยน (สถานะ สถานที่ ผู้ถือครอง เลข ชื่อ ยี่ห้อ รุ่น ประเภท งบ ราคา หมายเหตุ) ถูกบันทึกเป็นประวัติ (ค่าเดิม → ค่าใหม่ + ชื่อผู้แก้จาก JWT)
+- **กรรมการของรอบที่เปิดอยู่** (ที่ไม่ใช่ admin/staff) `PUT` ได้เฉพาะครุภัณฑ์ในรอบ และเฉพาะช่องรายละเอียด
+  (ชื่อ ยี่ห้อ รุ่น ประเภท สถานที่ ผู้ถือครอง หมายเหตุ) — ช่องอื่นถูกตัดทิ้ง · ประวัติบันทึกเป็น `inspect`
 
 ตอบกลับเป็น Asset (`201` สำหรับเพิ่ม)
 
@@ -262,12 +277,21 @@ Error: `400` รหัสเดิมผิด / สั้นกว่า 8 ต�
 Asset + ข้อมูลรอบตรวจนับที่เปิดอยู่ (ใช้ตอนสแกน QR แล้วกดตรวจในหน้านี้)
 ```json
 { …Asset…, "inspection": { "id": "…", "budgetYear": 2569, "checked": false, "result": null,
-  "checkedBy": "", "checkedAt": null, "canInspect": true } }
+  "checkedBy": "", "checkedAt": null, "note": "", "canInspect": true, "isCommittee": false },
+  "legacy": { "file": "ครุภัณฑ์ปี68.xlsx", "sheet": "…", "row": 12, "columns": [ { "label": "ผู้ขาย", "value": "…" } ] } }
 ```
 `inspection` เป็น `null` ถ้าไม่มีรอบเปิดอยู่
 
 #### `DELETE /assets/:id` 🛡️
-ย้ายไปถังขยะ (ไม่ลบจริง) → `{ "success": true }`
+ย้ายไปถังขยะ (ไม่ลบจริง) → `{ "success": true }` — ถังขยะของแต่ละคนเห็นเฉพาะรายการที่ตัวเองลบ
+
+#### `GET /assets/options` 👤
+ค่าที่มีอยู่ในระบบของแต่ละช่อง ใช้ทำ dropdown ที่พิมพ์ค้นหาได้
+`{ building: [], floor: [], roomNo: [], room: [], cat: [], brand: [], model: [], owner: [], budget: [] }`
+
+#### `GET /activity` 🛡️
+บันทึกกิจกรรมรวมทุกครุภัณฑ์ (ใครทำอะไร เมื่อไหร่) · `?action=create|update|delete|restore|import|inspect&by=&q=&from=YYYY-MM-DD&to=&page=&perPage=`
+`{ total, page, perPage, items: [ { id, action, summary, changes, by, at, asset: { id, code, name } } ] }`
 
 #### `GET /assets/:id/history` 👤
 ```json
@@ -357,9 +381,11 @@ Asset + ข้อมูลรอบตรวจนับที่เปิดอ
 | Endpoint | Request | Response |
 |---|---|---|
 | `GET /users?active=1` | `active=1` = เฉพาะบัญชีที่เปิดใช้ | `{ items: [ { id, username, name, role, position, email, phone, avatar, active } ] }` |
-| `POST /users` | `{ username, name, password (≥8), role: "user"\|"admin", position? }` | ผู้ใช้ที่สร้าง (`201`) · `409` username ซ้ำ |
+| `POST /users` | `{ username, name, password (≥8), role: "admin"\|"staff"\|"user", position? }` | ผู้ใช้ที่สร้าง (`201`) · `409` username ซ้ำ |
 | `PUT /users/:id` | `{ role?, active? }` | ผู้ใช้ · `400` ถ้าแก้บัญชีตัวเอง (กันล็อกตัวเองออก) |
 | `PUT /users/:id/password` | `{ newPassword (≥8) }` | `{ success: true }` |
+
+`GET /users` เรียกได้ทั้ง `admin` และ `staff` (staff ได้เฉพาะ id/ชื่อ/ตำแหน่ง ไว้เลือกผู้ถือครอง) — ที่เหลือเฉพาะ `admin`
 
 บัญชีที่ปิด (`active: false`) login ไม่ได้ แต่ประวัติที่เคยบันทึกยังอยู่
 บัญชีที่ Admin สร้างหรือตั้งรหัสให้ จะเป็น `mustChangePassword: true` — ผู้ใช้ต้องตั้งรหัสของตัวเองตอน login
@@ -385,7 +411,7 @@ cd backend && npm run reset-password -- <username>
   "id": "…", "budgetYear": 2569, "status": "open", "createdAt": "…", "closedAt": null,
   "committee": [ { "id": "…", "name": "อ.สมชาย", "username": "somchai" } ],
   "isCommittee": true, "scope": "all",
-  "results": ["ok","broken","disposal","unneeded","missing"],
+  "results": ["ok","broken","unneeded","transferred","missing"], "noteRequired": ["transferred","missing"],
   "items": [ { "id": "…", "assetId": "…", "code": "…", "name": "…", "room": "…", "owner": "",
                "status": null, "checked": false, "checkedBy": "", "checkedAt": null,
                "method": null, "note": "", "canInspect": true } ]
@@ -405,6 +431,7 @@ cd backend && npm run reset-password -- <username>
 ```json
 { "assetId": "…", "status": "broken", "note": "จอแตก" }
 ```
+- `status`: `ok` `broken` `unneeded` `transferred` `missing` — `transferred` (จำหน่ายแล้ว) และ `missing` (หาไม่พบ) **ต้องมี `note`** ไม่งั้น `400`
 - 1 ชิ้นนับ 1 ครั้งต่อรอบ — ส่งซ้ำ = **แก้ผล** (ไม่ได้นับเพิ่ม)
 - อัปเดตสถานะครุภัณฑ์ + วันที่ตรวจล่าสุด และบันทึกประวัติถ้าสถานะเปลี่ยน
 - `403` ไม่ใช่กรรมการ/ผู้ถือครอง · `409` รอบปิดแล้ว
@@ -412,13 +439,14 @@ cd backend && npm run reset-password -- <username>
 #### `POST /inspections/:id/bulk` 🧾 (เฉพาะกรรมการ)
 ```json
 { "room": "บร.2 ชั้น 1 ห้อง 107", "status": "ok" }
+{ "assetIds": ["…", "…"], "status": "missing", "note": "ห้องรื้อปรับปรุง" }
 ```
-บันทึกผลเดียวกันให้**เฉพาะชิ้นที่ยังไม่ตรวจ**ในห้องนั้น → `{ "success": true, "updated": 37, "status": "ok" }`
+ทั้งห้อง (`room`) หรือติ๊กเลือกหลายชิ้น (`assetIds`, สูงสุด 2000) — บันทึกผลเดียวกันให้**เฉพาะชิ้นที่ยังไม่ตรวจ** → `{ "success": true, "updated": 37, "status": "ok" }`
 
-#### `PUT /inspections/:id/close` 🛡️
+#### `PUT /inspections/:id/close` ✏️
 ปิดรอบ ล็อกผล → `{ "success": true, "progress": { … } }` · `409` ถ้าปิดไปแล้ว
-- **Admin ที่เปิดรอบ** ปิดได้เลย
-- **Admin คนอื่น** ปิดแทนได้ แต่ต้องส่ง `{ "reason": "เหตุผลอย่างน้อย 5 ตัวอักษร" }` ไม่งั้นได้ `400`
+- **คนที่เปิดรอบ** ปิดได้เลย
+- **ผู้ดูแลระบบ/ผู้ใช้คนอื่น** ปิดแทนได้ แต่ต้องส่ง `{ "reason": "เหตุผลอย่างน้อย 5 ตัวอักษร" }` ไม่งั้นได้ `400`
 - รายละเอียดรอบ (`GET /inspections/:id`) มี `createdBy`, `closedBy`, `closeReason`, `canClose`, `closeNeedsReason`
 
 #### `POST /inspections/:id/committee` 🛡️
@@ -434,15 +462,15 @@ cd backend && npm run reset-password -- <username>
 ```json
 {
   "generatedAt": "…", "total": 207, "transferred": 19,
-  "byStatus": { "ok": 172, "broken": 11, "disposal": 7, "unneeded": 12, "missing": 5, "transferred": 19 },
-  "groups": [ { "budget": "งบพิเศษ", "active": true, "ok": 120, "broken": 8, "disposal": 3,
+  "byStatus": { "ok": 172, "broken": 18, "unneeded": 12, "missing": 5, "transferred": 19 },
+  "groups": [ { "budget": "งบพิเศษ", "active": true, "ok": 120, "broken": 11,
                 "unneeded": 5, "missing": 2, "transferred": 17, "total": 138 } ],
   "totals": { "ok": 172, "…": 0, "total": 207 },
   "byRoom": [ { "room": "บร.2 ชั้น 1 ห้อง 107", "count": 80 } ],
   "inspection": { "id": "…", "budgetYear": 2569, "status": "open", "progress": { … } }
 }
 ```
-`total` **ไม่รวมตัดโอน** (ของโอนให้หน่วยงานอื่นแล้ว) · ชำรุดแยก ซ่อมได้ (`broken`) / ซ่อมไม่ได้ (`disposal`)
+`total` **ไม่รวมจำหน่ายแล้ว** (`transferred`) และสถานะปัญหาข้อมูล (`dataIssue` แสดงแยก)
 
 #### `GET /reports/detail?budget=&room=&status=`
 `{ inspectionYear: 2569, items: [ Asset + inspectedInRound + inspectedBy ] }` เรียงตาม งบ → สถานที่ → เลขครุภัณฑ์

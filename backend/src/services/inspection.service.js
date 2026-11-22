@@ -2,7 +2,7 @@ const Inspection = require("../models/Inspection");
 const InspectionItem = require("../models/InspectionItem");
 
 // ผลตรวจที่เลือกได้ — "จำหน่ายแล้ว" และ "หาไม่พบ" ต้องใส่หมายเหตุ (ตาม feedback UAT)
-const INSPECT_RESULTS = ["ok", "broken", "disposal", "unneeded", "transferred", "missing"];
+const INSPECT_RESULTS = ["ok", "broken", "unneeded", "transferred", "missing"];
 const NOTE_REQUIRED = ["transferred", "missing"];
 
 const getOpenInspection = () => Inspection.findOne({ status: "open" }).sort({ createdAt: -1 });

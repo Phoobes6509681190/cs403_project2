@@ -3,7 +3,7 @@ import { STATUS } from '../data/statusConfig'
 import { Btn, ConfirmDialog, StatusPill } from './UI'
 
 // ผลตรวจที่เลือกได้ (ตรงกับ INSPECT_RESULTS ฝั่ง backend)
-export const INSPECT_ACTIONS = ['ok', 'broken', 'disposal', 'unneeded', 'transferred', 'missing'].map((key) => ({ key }))
+export const INSPECT_ACTIONS = ['ok', 'broken', 'unneeded', 'transferred', 'missing'].map((key) => ({ key }))
 // ผลที่ต้องเขียนหมายเหตุ เช่น จำหน่ายเมื่อไหร่/เลขที่หนังสือ, หาไม่พบเพราะอะไร
 export const NOTE_REQUIRED = ['transferred', 'missing']
 const NOTE_HINT = {

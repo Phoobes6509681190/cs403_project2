@@ -22,7 +22,8 @@ test("statusFromLabel: แปลงสถานะภาษาไทยและ
   assert.strictEqual(statusFromLabel(" ตัดโอน "), "transferred");
   assert.strictEqual(statusFromLabel("หมดความจำเป็นในการใช้งาน"), "unneeded");
   assert.strictEqual(statusFromLabel("ไม่พบพัสดุในทะเบียน"), "missing");
-  assert.strictEqual(statusFromLabel("รอจำหน่าย"), "disposal");
+  assert.strictEqual(statusFromLabel("รอจำหน่าย"), "broken", "รอจำหน่ายเลิกใช้ รวมเป็นชำรุด");
+  assert.strictEqual(statusFromLabel("ชำรุดซ่อมไม่ได้"), "broken");
   assert.strictEqual(statusFromLabel(""), "ok");
   assert.strictEqual(statusFromLabel("broken"), "broken");
   assert.strictEqual(statusFromLabel("อะไรก็ไม่รู้"), null);
