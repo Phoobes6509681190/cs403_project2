@@ -322,7 +322,7 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(after.status, 409);
   });
 
-  await t.test("รายงาน: ยอดรวมไม่นับตัดโอน, งบเดิมแยกแถว, ชำรุดแยกซ่อมได้", async () => {
+  await t.test("รายงาน: ยอดรวมไม่นับตัดโอน, งบเดิมแยกแถว, ชำรุดรวมเป็นกลุ่มเดียว", async () => {
     const s = await api("GET", "/reports/summary", { token: tok.admin });
     assert.strictEqual(s.status, 200);
     assert.strictEqual(s.data.transferred, 16);
@@ -551,6 +551,19 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.ok(!list.data.items.some((i) => i.id === round), "รอบถูกลบแล้ว");
     const active = await api("GET", "/inspections/active", { token: tok.admin });
     assert.strictEqual(active.data, null);
+  });
+
+  await t.test("ปรับสถานะเดิม: รอจำหน่าย (disposal) ในฐานข้อมูลถูกเปลี่ยนเป็นชำรุด", async () => {
+    const Asset = require("../src/models/Asset");
+    const { migrateStatuses } = require("../src/services/migrateStatuses");
+    const r = await api("POST", "/assets", { token: tok.admin, body: { code: "วทท-8พ-64-1/1", name: "ทดสอบสถานะเดิม" } });
+    assert.strictEqual(r.status, 201);
+    await Asset.collection.updateOne({ _id: new mongoose.Types.ObjectId(r.data.id) }, { $set: { status: "disposal" } });
+    const out = await migrateStatuses();
+    assert.strictEqual(out.disposal.assets, 1);
+    const a = await api("GET", `/assets/${r.data.id}`, { token: tok.admin });
+    assert.strictEqual(a.data.status, "broken");
+    assert.strictEqual((await migrateStatuses()).disposal.assets, 0, "รันซ้ำได้ ไม่มีอะไรเปลี่ยน");
   });
 
   await t.test("ลบหลายรายการ: เลือกเอง / ทั้งหมดตามตัวกรอง (ต้องตรงจำนวน) / user ทั่วไปไม่ได้", async () => {

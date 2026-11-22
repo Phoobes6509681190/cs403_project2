@@ -33,7 +33,6 @@ async function filterOptions() {
 // GET /api/reports/summary?budget=&room=&year=
 // หน้าแรกของรายงาน: จำนวนแยกตามงบ × สถานะ
 //   - ยอดรวมของสาขา "ไม่นับ" ของที่ตัดโอนแล้ว (แสดงแยกเป็นคอลัมน์ transferred)
-//   - ชำรุดแยก ซ่อมได้ (broken) / ซ่อมไม่ได้ (disposal)
 exports.summary = async (req, res) => {
   try {
     const filter = baseFilter(req.query);

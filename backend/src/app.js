@@ -7,6 +7,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
 const { ensureDefaultBudgets } = require("./services/budget.service");
+const { migrateStatuses } = require("./services/migrateStatuses");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -56,6 +57,8 @@ async function start() {
   await mongoose.connect(process.env.MONGO_URI);
   console.log("MongoDB connected!");
   await ensureDefaultBudgets();
+  const migrated = await migrateStatuses();
+  if (Object.values(migrated).some((m) => m.assets || m.results || m.snapshots)) console.log("ปรับสถานะเดิม:", migrated);
   app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
 }
 

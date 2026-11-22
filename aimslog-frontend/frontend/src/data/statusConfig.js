@@ -2,8 +2,7 @@
 // counted: false = ไม่นับในยอดของสาขา (ตัดโอน + ปัญหาข้อมูล 3 แบบจากไฟล์คณะ)
 export const STATUS = {
   ok: { key: 'ok', label: 'ปกติ', dot: 'var(--ok)', cls: 'bg-oksoft text-ok' },
-  broken: { key: 'broken', label: 'ชำรุด', hint: 'ซ่อมได้ แต่ยังไม่ได้ซ่อม', dot: 'var(--bad)', cls: 'bg-badsoft text-bad' },
-  disposal: { key: 'disposal', label: 'รอจำหน่าย', hint: 'ชำรุด ซ่อมไม่ได้', dot: 'var(--bad)', cls: 'bg-badsoft text-bad ring-1 ring-inset ring-bad/40' },
+  broken: { key: 'broken', label: 'ชำรุด', hint: 'เสียหาย ใช้งานไม่ได้ตามปกติ', dot: 'var(--bad)', cls: 'bg-badsoft text-bad' },
   unneeded: { key: 'unneeded', label: 'เสื่อมสภาพ', hint: 'หมดความจำเป็นในการใช้งาน', dot: 'var(--warn)', cls: 'bg-warnsoft text-warn' },
   transferred: { key: 'transferred', label: 'จำหน่ายแล้ว', counted: false, hint: 'โอนให้หน่วยงาน/สาขาอื่น หรือจำหน่ายแล้ว', dot: 'var(--moved)', cls: 'text-[color:var(--moved)]' },
   missing: { key: 'missing', label: 'หาไม่พบ', hint: 'ไม่พบพัสดุตามทะเบียน', dot: 'var(--gone)', cls: 'bg-gonesoft text-gone' },

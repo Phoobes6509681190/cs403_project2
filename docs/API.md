@@ -76,8 +76,7 @@
 | key | ชื่อที่แสดง (ตามไฟล์คณะ) | ใช้เป็นผลตรวจนับได้ | นับในยอดสาขา |
 |---|---|---|---|
 | `ok` | ปกติ | ✅ | ✅ |
-| `broken` | ชำรุด (ซ่อมได้) | ✅ | ✅ |
-| `disposal` | รอจำหน่าย (ซ่อมไม่ได้) | ✅ | ✅ |
+| `broken` | ชำรุด (เดิมแยก `disposal` รอจำหน่าย — เลิกใช้ ข้อมูลเดิมถูกแปลงเป็น `broken` ตอนเปิดเซิร์ฟเวอร์) | ✅ | ✅ |
 | `unneeded` | เสื่อมสภาพ (หมดความจำเป็น) | ✅ | ✅ |
 | `missing` | หาไม่พบ | ✅ ต้องมีหมายเหตุ | ✅ |
 | `transferred` | จำหน่ายแล้ว | ✅ ต้องมีหมายเหตุ | ❌ |
@@ -412,7 +411,7 @@ cd backend && npm run reset-password -- <username>
   "id": "…", "budgetYear": 2569, "status": "open", "createdAt": "…", "closedAt": null,
   "committee": [ { "id": "…", "name": "อ.สมชาย", "username": "somchai" } ],
   "isCommittee": true, "scope": "all",
-  "results": ["ok","broken","disposal","unneeded","missing"],
+  "results": ["ok","broken","unneeded","transferred","missing"], "noteRequired": ["transferred","missing"],
   "items": [ { "id": "…", "assetId": "…", "code": "…", "name": "…", "room": "…", "owner": "",
                "status": null, "checked": false, "checkedBy": "", "checkedAt": null,
                "method": null, "note": "", "canInspect": true } ]
@@ -432,7 +431,7 @@ cd backend && npm run reset-password -- <username>
 ```json
 { "assetId": "…", "status": "broken", "note": "จอแตก" }
 ```
-- `status`: `ok` `broken` `disposal` `unneeded` `transferred` `missing` — `transferred` (จำหน่ายแล้ว) และ `missing` (หาไม่พบ) **ต้องมี `note`** ไม่งั้น `400`
+- `status`: `ok` `broken` `unneeded` `transferred` `missing` — `transferred` (จำหน่ายแล้ว) และ `missing` (หาไม่พบ) **ต้องมี `note`** ไม่งั้น `400`
 - 1 ชิ้นนับ 1 ครั้งต่อรอบ — ส่งซ้ำ = **แก้ผล** (ไม่ได้นับเพิ่ม)
 - อัปเดตสถานะครุภัณฑ์ + วันที่ตรวจล่าสุด และบันทึกประวัติถ้าสถานะเปลี่ยน
 - `403` ไม่ใช่กรรมการ/ผู้ถือครอง · `409` รอบปิดแล้ว
@@ -463,15 +462,15 @@ cd backend && npm run reset-password -- <username>
 ```json
 {
   "generatedAt": "…", "total": 207, "transferred": 19,
-  "byStatus": { "ok": 172, "broken": 11, "disposal": 7, "unneeded": 12, "missing": 5, "transferred": 19 },
-  "groups": [ { "budget": "งบพิเศษ", "active": true, "ok": 120, "broken": 8, "disposal": 3,
+  "byStatus": { "ok": 172, "broken": 18, "unneeded": 12, "missing": 5, "transferred": 19 },
+  "groups": [ { "budget": "งบพิเศษ", "active": true, "ok": 120, "broken": 11,
                 "unneeded": 5, "missing": 2, "transferred": 17, "total": 138 } ],
   "totals": { "ok": 172, "…": 0, "total": 207 },
   "byRoom": [ { "room": "บร.2 ชั้น 1 ห้อง 107", "count": 80 } ],
   "inspection": { "id": "…", "budgetYear": 2569, "status": "open", "progress": { … } }
 }
 ```
-`total` **ไม่รวมตัดโอน** (ของโอนให้หน่วยงานอื่นแล้ว) · ชำรุดแยก ซ่อมได้ (`broken`) / ซ่อมไม่ได้ (`disposal`)
+`total` **ไม่รวมจำหน่ายแล้ว** (`transferred`) และสถานะปัญหาข้อมูล (`dataIssue` แสดงแยก)
 
 #### `GET /reports/detail?budget=&room=&status=`
 `{ inspectionYear: 2569, items: [ Asset + inspectedInRound + inspectedBy ] }` เรียงตาม งบ → สถานที่ → เลขครุภัณฑ์

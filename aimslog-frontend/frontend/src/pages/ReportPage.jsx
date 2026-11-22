@@ -60,13 +60,12 @@ export default function ReportPage() {
     }
   }
 
-  const donutData = ['ok', 'broken', 'disposal', 'unneeded', 'missing'].map((k) => ({
+  const donutData = ['ok', 'broken', 'unneeded', 'missing'].map((k) => ({
     label: STATUS[k].label,
     value: byStatus[k] || 0,
     color: STATUS[k].dot,
   }))
   const max = Math.max(1, ...byRoom.map((r) => r.count))
-  const brokenAll = (byStatus.broken || 0) + (byStatus.disposal || 0)
 
   return (
     <div className="space-y-5 print:space-y-3 print:text-black">
@@ -107,7 +106,7 @@ export default function ReportPage() {
       <div className="grid gap-4 grid-cols-2 xl:grid-cols-5 print:hidden">
         <StatCard label="ทั้งหมด (ไม่รวมจำหน่ายแล้ว)" value={total} sub={`จำหน่ายแล้ว ${nf(summary.transferred)} รายการ`} />
         <StatCard label="ปกติ" value={byStatus.ok || 0} sub={`${pct(byStatus.ok, total)}%`} color="var(--ok)" />
-        <StatCard label="ชำรุด" value={brokenAll} sub={`ซ่อมได้ ${nf(byStatus.broken)} · ซ่อมไม่ได้ ${nf(byStatus.disposal)}`} color="var(--bad)" />
+        <StatCard label="ชำรุด" value={byStatus.broken || 0} sub={`${pct(byStatus.broken, total)}%`} color="var(--bad)" />
         <StatCard label="เสื่อมสภาพ" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}%`} color="var(--warn)" />
         <StatCard label="หาไม่พบ" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}%`} color="var(--gone)" />
       </div>

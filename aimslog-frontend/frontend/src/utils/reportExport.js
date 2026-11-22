@@ -2,11 +2,10 @@ import * as XLSX from 'xlsx'
 import { STATUS, DATA_ISSUE } from '../data/statusConfig'
 import { formatDateTH } from './format'
 
-// คอลัมน์หน้าสรุป: 4 กลุ่มตามที่เจ้าหน้าที่พัสดุใช้ (ชำรุดแยกซ่อมได้/ซ่อมไม่ได้) + ตัดโอนแยกไม่นับรวม
+// คอลัมน์หน้าสรุป: 4 กลุ่มตามไฟล์คณะ (ปกติ / ชำรุด / เสื่อมสภาพ / หาไม่พบ) + จำหน่ายแล้วแยกไม่นับรวม
 export const SUMMARY_COLUMNS = [
   { key: 'ok', label: 'ปกติ' },
-  { key: 'broken', label: 'ชำรุด (ซ่อมได้)' },
-  { key: 'disposal', label: 'ชำรุด (ซ่อมไม่ได้/รอจำหน่าย)' },
+  { key: 'broken', label: 'ชำรุด' },
   { key: 'unneeded', label: 'เสื่อมสภาพ' },
   { key: 'missing', label: 'หาไม่พบ' },
   { key: 'total', label: 'รวม' },

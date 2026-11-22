@@ -58,6 +58,9 @@ function fromAssetInput(body = {}) {
   return out;
 }
 
+// ชื่อของสถานะที่เลิกใช้แล้ว — ประวัติเก่ายังแสดงเป็นภาษาไทยได้
+const OLD_LABELS = { disposal: "รอจำหน่าย (เดิม)" };
+
 const FIELD_LABELS = { assetCode: "เลขครุภัณฑ์", name: "ชื่อ", model: "รุ่น", category: "ประเภท", budget: "งบประมาณ", price: "ราคา", status: "สถานะ", location: "สถานที่", building: "ตึก/อาคาร", floor: "ชั้น", room: "ห้อง", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ", note: "หมายเหตุ", fundSource: "แหล่งเงิน" };
 
 function historySummary(h) {
@@ -68,7 +71,7 @@ function historySummary(h) {
   const prefix = h.action === "import" ? "อัปเดตจาก Excel — " : "";
   return prefix + (h.changes || [])
     .map((c) => {
-      const fmt = (v) => (c.field === "status" ? STATUSES[v]?.label || v : v) || "—";
+      const fmt = (v) => (c.field === "status" ? STATUSES[v]?.label || OLD_LABELS[v] || v : v) || "—";
       return `${FIELD_LABELS[c.field] || c.field}: ${fmt(c.oldValue)} → ${fmt(c.newValue)}`;
     })
     .join(", ");
