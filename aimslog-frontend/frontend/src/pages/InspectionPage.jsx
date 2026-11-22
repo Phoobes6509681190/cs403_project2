@@ -164,11 +164,17 @@ export default function InspectionPage() {
               กรรมการ: {inspection.committee.map((c) => c.name).join(', ') || '—'}
             </p>
           </div>
-          {inspection.canClose && (
-            <Btn variant="danger" onClick={() => setConfirmClose(true)}>
-              {inspection.closeNeedsReason ? 'ปิดรอบแทน' : 'ปิดรอบ'}
-            </Btn>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {/* แต่งตั้งกรรมการอยู่ในหน้าตรวจนับนี้ (ไม่มีเมนูแยก) — ผู้ดูแลระบบเท่านั้น */}
+            {isOpen && role === 'admin' && (
+              <Link to="/inspection/committee"><Btn>แก้ไขกรรมการ</Btn></Link>
+            )}
+            {inspection.canClose && (
+              <Btn variant="danger" onClick={() => setConfirmClose(true)}>
+                {inspection.closeNeedsReason ? 'ปิดรอบแทน' : 'ปิดรอบ'}
+              </Btn>
+            )}
+          </div>
         </div>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />

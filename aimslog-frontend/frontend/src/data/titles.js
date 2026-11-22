@@ -5,7 +5,7 @@ export const TITLES = {
   import: 'นำเข้าข้อมูลจาก Excel',
   labels: 'พิมพ์ QR Code',
   inspection: 'ตรวจนับครุภัณฑ์',
-  committee: 'แต่งตั้งกรรมการตรวจนับ',
+  committee: 'แต่งตั้งกรรมการตรวจนับ',  // เปิดจากหน้าตรวจนับ (ไม่มีเมนูแยก)
   reports: 'รายงาน',
   profile: 'โปรไฟล์',
   users: 'จัดการผู้ใช้',
