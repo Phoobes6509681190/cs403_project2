@@ -290,13 +290,14 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
 
   await t.test("ติ๊กเลือกหลายชิ้น: บันทึกเฉพาะที่เลือกและยังไม่ตรวจ", async () => {
     const round = await api("GET", `/inspections/${ids.round}`, { token: tok.member });
-    const pending = round.data.items.filter((i) => !i.checked).slice(0, 2).map((i) => i.assetId);
-    assert.strictEqual(pending.length, 2);
+    // เลือกเฉพาะชิ้นที่ยังไม่ตรวจและสถานะเดิม "ปกติ" — บันทึก "ปกติ" แล้วไม่กระทบยอดในเทสต์รายงาน
+    const pending = round.data.items.filter((i) => !i.checked && i.statusBefore === "ok").map((i) => i.assetId);
+    assert.strictEqual(pending.length, 1, "งบคลังที่ปกติ 1 ชิ้นยังไม่ได้ตรวจ");
     const r = await api("POST", `/inspections/${ids.round}/bulk`, {
       token: tok.member, body: { assetIds: [...pending, ids.asset13], status: "ok" }
     });
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.data.updated, 2, "ชิ้นที่ตรวจแล้ว (asset13) ไม่ถูกทับ");
+    assert.strictEqual(r.data.updated, 1, "ชิ้นที่ตรวจแล้ว (asset13) ไม่ถูกทับ");
     const none = await api("POST", `/inspections/${ids.round}/bulk`, { token: tok.member, body: { assetIds: [], status: "ok" } });
     assert.strictEqual(none.status, 400);
   });
@@ -513,12 +514,20 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
 
   await t.test("ล้างรอบทดสอบ: คืนสถานะเดิม ลบผลตรวจและประวัติการตรวจ แต่ไม่ทับที่ Admin แก้เอง", async () => {
     const { cleanInspections } = require("../src/services/cleanInspections");
+    // สร้างครุภัณฑ์ปกติ 2 ชิ้นของเทสต์นี้เอง — ไม่พึ่งข้อมูลจากเทสต์ก่อนหน้า
+    // (ชิ้นปกติเดิมถูกตรวจเป็นหาไม่พบ/ชำรุด หรือถูกลบถาวรในเทสต์ถังขยะไปแล้ว)
+    const mine = [];
+    for (let i = 1; i <= 2; i++) {
+      const r = await api("POST", "/assets", { token: tok.admin, body: { code: `วทท-8พ-63-${i}/2`, name: `ทดสอบล้างรอบ ${i}`, status: "ok" } });
+      assert.strictEqual(r.status, 201);
+      mine.push(r.data.id);
+    }
     const open = await api("POST", "/inspections", { token: tok.admin, body: { budgetYear: 2571, committee: [{ userId: ids.member }] } });
     assert.strictEqual(open.status, 201);
     const round = open.data.id;
     const d = await api("GET", `/inspections/${round}`, { token: tok.admin });
-    const [a, b] = d.data.items.filter((i) => i.statusBefore === "ok");
-    assert.ok(a && b, "ต้องมีครุภัณฑ์สถานะปกติอย่างน้อย 2 ชิ้น");
+    const [a, b] = mine.map((id) => d.data.items.find((i) => i.assetId === id));
+    assert.ok(a && b && a.statusBefore === "ok" && b.statusBefore === "ok", "ครุภัณฑ์ที่สร้างอยู่ในรอบและสถานะปกติ");
     const inspectCount = async (id) => (await api("GET", `/assets/${id}/history`, { token: tok.admin })).data.items.filter((x) => x.action === "inspect").length;
     const before = await inspectCount(a.assetId);
     for (const it of [a, b]) {
