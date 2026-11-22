@@ -26,8 +26,8 @@ export default {
       boxShadow: { card: 'var(--shadow)' },
       fontFamily: {
         sans: ['"IBM Plex Sans Thai"', '"Noto Sans Thai"', 'system-ui', 'sans-serif'],
-        // เลขครุภัณฑ์/ตัวเลขในตาราง ใช้ฟอนต์ความกว้างเท่ากัน อ่านเทียบแนวได้ง่าย
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        // ใช้ฟอนต์เดียวทั้งเว็บ (ผู้ใช้ขอ) — ตัวเลขเทียบแนวได้ด้วย tabular-nums
+        mono: ['"IBM Plex Sans Thai"', '"Noto Sans Thai"', 'system-ui', 'sans-serif'],
       },
     },
   },

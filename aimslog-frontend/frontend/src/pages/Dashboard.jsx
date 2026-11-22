@@ -34,13 +34,13 @@ export default function Dashboard() {
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดข้อมูลภาพรวมไม่สำเร็จ" />
 
-  const { total = 0, byStatus = {}, byRoom = [], inspection, transferred = 0 } = summary || {}
+  const { total = 0, byStatus = {}, byRoom = [], inspection, transferred = 0, dataIssue = 0 } = summary || {}
   const brokenAll = (byStatus.broken || 0) + (byStatus.disposal || 0)
   const max = Math.max(1, ...byRoom.map((r) => r.count))
 
   return (
     <div className="space-y-5">
-      {user?.role === 'admin' && !user?.mfaEnabled && (
+      {(user?.role === 'admin' || user?.role === 'staff') && !user?.mfaEnabled && (
         <Link to="/profile?tab=security" className="block">
           <Card className="p-4 border-warn/40 bg-warnsoft text-[13px] text-warn hover:opacity-90">
             ยังไม่ได้เปิด MFA <b>เปิดใช้ →</b>
@@ -59,11 +59,11 @@ export default function Dashboard() {
         </Link>
       )}
       <div className="grid gap-4 grid-cols-2 xl:grid-cols-5">
-        <StatCard label="ทั้งหมด" value={total} sub={`ไม่รวมตัดโอน ${nf(transferred)} รายการ`} />
+        <StatCard label="ทั้งหมด" value={total} sub={`ไม่รวมจำหน่ายแล้ว ${nf(transferred)} รายการ${dataIssue ? ` · ข้อมูลต้องตรวจสอบ ${nf(dataIssue)}` : ''}`} />
         <StatCard label="ปกติ" value={byStatus.ok || 0} sub={`${pct(byStatus.ok, total)}% ของทั้งหมด`} color="var(--ok)" />
         <StatCard label="ชำรุด" value={brokenAll} sub={`ซ่อมได้ ${nf(byStatus.broken)} · ซ่อมไม่ได้ ${nf(byStatus.disposal)}`} color="var(--bad)" />
-        <StatCard label="หมดความจำเป็น" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}% ของทั้งหมด`} color="var(--warn)" />
-        <StatCard label="ไม่พบพัสดุ" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}% ของทั้งหมด`} color="var(--gone)" />
+        <StatCard label="เสื่อมสภาพ" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}% ของทั้งหมด`} color="var(--warn)" />
+        <StatCard label="หาไม่พบ" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}% ของทั้งหมด`} color="var(--gone)" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">

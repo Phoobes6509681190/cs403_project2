@@ -17,6 +17,10 @@ export default function AssetImportPage() {
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
+  // ชีตและการจับคู่คอลัมน์ — ระบบเดาให้ครั้งแรก ผู้ใช้แก้ได้ แล้วตรวจไฟล์ใหม่ตามที่เลือก
+  const [sheets, setSheets] = useState([]) // ชีตที่เลือกนำเข้า (ระบบเลือกทุกชีตที่มีตารางให้ก่อน)
+  const [mapping, setMapping] = useState(null)
+  const [sheetError, setSheetError] = useState(null) // { message, sheets } เมื่อหาหัวตารางไม่เจอ
 
   const reset = () => {
     setFile(null)
@@ -25,6 +29,50 @@ export default function AssetImportPage() {
     setBudgetMapping({})
     setShowMissing(false)
     setResult(null)
+    setSheets([])
+    setMapping(null)
+    setSheetError(null)
+  }
+
+  // ตรวจไฟล์ (preview) ตามชีต/คอลัมน์ที่เลือก — เรียกครั้งแรกตอนเลือกไฟล์ และทุกครั้งที่เปลี่ยนชีต/คอลัมน์
+  const runPreview = async (f, opts = {}) => {
+    setChecking(true)
+    setSheetError(null)
+    try {
+      const data = await previewImport(f, opts)
+      setPreview(data)
+      setSheets(data.selectedSheets || [data.sheet])
+      setMapping(data.mapping)
+      setStatusMapping(Object.fromEntries(data.unknownStatuses.map((s) => [s.label, ''])))
+      setBudgetMapping(Object.fromEntries(data.unknownBudgets.map((b) => [b.abbr, ''])))
+    } catch (err) {
+      const d = err.response?.data
+      if (d?.sheets?.length) {
+        setPreview(null)
+        setSheetError({ message: d.message, sheets: d.sheets })
+        if (opts.sheets) setSheets(opts.sheets)
+      } else {
+        toast.error(d?.message || 'อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv')
+        reset()
+      }
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const toggleSheet = (name) => {
+    const next = sheets.includes(name) ? sheets.filter((s) => s !== name) : [...sheets, name]
+    if (!next.length) return
+    // คงลำดับตามไฟล์ (แถวซ้ำข้ามชีตนับจากชีตที่มาก่อน)
+    const all = preview?.sheets || sheetError?.sheets || []
+    const ordered = all.filter((s) => next.includes(s))
+    setSheets(ordered)
+    runPreview(file, { sheets: ordered, mapping })
+  }
+  const changeColumn = (field, header) => {
+    const next = { ...mapping, [field]: header }
+    setMapping(next)
+    runPreview(file, { sheets, mapping: next })
   }
 
   const onFileChange = async (e) => {
@@ -33,18 +81,7 @@ export default function AssetImportPage() {
     if (!f) return
     reset()
     setFile(f)
-    setChecking(true)
-    try {
-      const data = await previewImport(f)
-      setPreview(data)
-      setStatusMapping(Object.fromEntries(data.unknownStatuses.map((s) => [s.label, ''])))
-      setBudgetMapping(Object.fromEntries(data.unknownBudgets.map((b) => [b.abbr, ''])))
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv')
-      reset()
-    } finally {
-      setChecking(false)
-    }
+    runPreview(f)
   }
 
   const missingStatus = Object.values(statusMapping).some((v) => !v)
@@ -54,7 +91,7 @@ export default function AssetImportPage() {
   const confirmImport = async () => {
     setImporting(true)
     try {
-      const data = await commitImport(file, { statusMapping, budgetMapping })
+      const data = await commitImport(file, { statusMapping, budgetMapping, sheets, mapping })
       setResult(data)
       toast.success(`เพิ่มใหม่ ${nf(data.successCount)} · อัปเดต ${nf(data.updatedCount)} รายการ`)
     } catch (err) {
@@ -90,6 +127,75 @@ export default function AssetImportPage() {
           <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={onFileChange} />
         </label>
       </Card>
+
+      {sheetError && !result && (
+        <Card className="p-4">
+          <p className="text-[13px] text-bad mb-3">{sheetError.message}</p>
+          <p className="text-[13px] text-muted mb-2">เลือกชีตที่มีรายการครุภัณฑ์</p>
+          <div className="flex flex-wrap gap-2">
+            {sheetError.sheets.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => runPreview(file, { sheets: [s] })}
+                className="rounded-full border border-line px-3 py-1.5 text-[13px] hover:border-brand hover:bg-brandsoft"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {preview && mapping && !result && (
+        <Card className="p-4">
+          <h3 className="font-semibold mb-2">ชีตและคอลัมน์ในไฟล์</h3>
+          {preview.sheets.length > 1 && (
+            <div className="mb-4">
+              <p className="text-[13px] text-muted mb-2">ชีตที่นำเข้า (แถวที่ซ้ำกับชีตก่อนหน้าจะถูกข้าม)</p>
+              <div className="flex flex-wrap gap-2">
+                {preview.sheets.map((s) => {
+                  const info = preview.sheetInfo?.find((x) => x.name === s)
+                  const on = sheets.includes(s)
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={checking}
+                      onClick={() => toggleSheet(s)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
+                        on ? 'border-brand bg-brandsoft text-ink' : 'border-line text-muted hover:border-ink/40'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded border ${on ? 'bg-brand border-brand' : 'border-line'}`} />
+                      {s}
+                      {on && info?.ok && <span className="text-faint tabular-nums">{nf(info.rows)} แถว</span>}
+                      {on && info && !info.ok && <span className="text-bad">ไม่พบตาราง</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {preview.fields.map((f) => (
+              <SelectField
+                key={f.key}
+                label={f.label}
+                required={f.required}
+                disabled={checking}
+                value={mapping[f.key] || ''}
+                onChange={(e) => changeColumn(f.key, e.target.value)}
+                options={[
+                  { value: '', label: f.required ? '— เลือกคอลัมน์ —' : '— ไม่มีในไฟล์ —' },
+                  ...[...new Set(preview.headers.filter(Boolean))].map((h) => ({ value: h, label: h })),
+                ]}
+              />
+            ))}
+          </div>
+          <p className="text-[11px] text-faint mt-3">คอลัมน์อื่นในไฟล์ไม่หาย ระบบเก็บค่าเดิมทั้งแถวไว้กับครุภัณฑ์แต่ละชิ้น</p>
+        </Card>
+      )}
 
       {checking && <LoadingState label="กำลังตรวจสอบไฟล์..." />}
 
@@ -194,7 +300,7 @@ export default function AssetImportPage() {
               <table className="w-full min-w-[1100px] text-[12px]">
                 <thead className="sticky top-0 bg-surface z-10">
                   <tr className="text-muted border-b border-line">
-                    {['แถว', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
+                    {['แถว', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
                       <th key={h} className="text-left font-medium py-2 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -216,8 +322,8 @@ export default function AssetImportPage() {
                       invalid: <span className="text-bad">{r.errors.join(', ')}</span>,
                     }[r.kind]
                     return (
-                      <tr key={r.row} className={`border-b border-line last:border-0 ${r.kind === 'dup' || r.kind === 'invalid' ? 'opacity-50' : ''}`}>
-                        <td className="py-2 pr-3 text-faint">{r.row}</td>
+                      <tr key={`${r.sheet}!${r.row}`} className={`border-b border-line last:border-0 ${r.kind === 'dup' || r.kind === 'invalid' ? 'opacity-50' : ''}`}>
+                        <td className="py-2 pr-3 text-faint whitespace-nowrap">{sheets.length > 1 && <span className="text-[11px]">{r.sheet} · </span>}{r.row}</td>
                         {cell('building', r.building, 'whitespace-nowrap')}
                         {cell('floor', r.floor)}
                         {cell('room', r.room)}
@@ -291,7 +397,7 @@ function RowTable({ title, rows }) {
           <tbody>
             {rows.map((f, i) => (
               <tr key={i} className="border-b border-line last:border-0">
-                <td className="py-2 pr-3">{f.row}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{f.sheet && <span className="text-[11px] text-faint">{f.sheet} · </span>}{f.row}</td>
                 <td className="py-2 pr-3 text-bad">{f.reason}</td>
               </tr>
             ))}

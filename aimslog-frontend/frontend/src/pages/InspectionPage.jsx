@@ -9,7 +9,8 @@ import {
 import { usePolling } from '../hooks/usePolling'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
-import { InspectButtons, INSPECT_ACTIONS } from '../components/InspectButtons'
+import { InspectPicker, INSPECT_ACTIONS, NOTE_REQUIRED } from '../components/InspectButtons'
+import RoundResultsTable from '../components/RoundResultsTable'
 import RoundHistory from '../components/RoundHistory'
 import { STATUS } from '../data/statusConfig'
 import { nf, formatDateTimeTH } from '../utils/format'
@@ -31,6 +32,8 @@ export default function InspectionPage() {
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState('ok')
   const [bulking, setBulking] = useState(false)
+  const [bulkNote, setBulkNote] = useState('')
+  const [view, setView] = useState('check') // check = เดินตรวจ, table = ตารางผลรอบนี้
   const debouncedQ = useDebounce(q, 200)
 
   const load = useCallback(async () => {
@@ -56,19 +59,17 @@ export default function InspectionPage() {
   // Real-time แบบ polling ทุก 3 วิ (เฉพาะรอบที่ยังเปิด)
   const { data: progress } = usePolling(progressFetch, { intervalMs: 3000, enabled: !!inspection && isOpen })
 
-  const markStatus = async (assetId, status) => {
-    // กันกดพลาด: ถ้าชิ้นนี้บันทึกผลไว้แล้ว ให้ยืนยันก่อนเปลี่ยน
-    const prev = inspection.items.find((i) => i.assetId === assetId)
-    if (prev?.checked && prev.status !== status && editingId !== assetId &&
-        !window.confirm(`ชิ้นนี้บันทึกผลไว้แล้ว ต้องการเปลี่ยนเป็น "${STATUS[status].label}" หรือไม่?`)) return
+  // ยืนยันผลแล้วจาก InspectPicker (เลือก -> บันทึก -> หน้าต่างยืนยัน)
+  const markStatus = async (assetId, status, note) => {
     setSubmittingId(assetId)
     try {
-      const { item } = await submitInspectionItem(inspection.id, assetId, status)
+      const { item } = await submitInspectionItem(inspection.id, assetId, status, note)
       setInspection((prev) => ({
         ...prev,
         items: prev.items.map((it) => (it.assetId === assetId ? item : it)),
       }))
       setEditingId(null)
+      toast.success(`บันทึกผล "${STATUS[status].label}" แล้ว`)
     } catch (err) {
       toast.error(err.response?.data?.message || 'บันทึกผลตรวจนับไม่สำเร็จ')
     } finally {
@@ -98,7 +99,7 @@ export default function InspectionPage() {
   const handleBulk = async () => {
     setBulking(true)
     try {
-      const { updated } = await bulkMarkRoom(inspection.id, room, bulkStatus)
+      const { updated } = await bulkMarkRoom(inspection.id, room, bulkStatus, bulkNote.trim())
       toast.success(`บันทึก "${STATUS[bulkStatus].label}" ${nf(updated)} รายการในห้อง ${room || 'ไม่ระบุ'}`)
       setBulkOpen(false)
       load()
@@ -177,6 +178,24 @@ export default function InspectionPage() {
         </div>
       </Card>
 
+      <div className="flex rounded-xl border border-line p-1 text-[13px] w-fit bg-surface">
+        {[
+          ['check', isOpen ? 'เดินตรวจ' : 'รายการ'],
+          ['table', 'ตารางผลรอบนี้'],
+        ].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setView(k)}
+            className={`px-3 py-1.5 rounded-lg ${view === k ? 'bg-brandsoft text-brandink font-medium' : 'text-muted'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'table' ? (
+        <RoundResultsTable inspection={inspection} items={allItems} />
+      ) : (
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <div className="flex rounded-xl border border-line p-1 text-[13px]">
@@ -224,7 +243,21 @@ export default function InspectionPage() {
                 <option key={a.key} value={a.key}>{STATUS[a.key].label}</option>
               ))}
             </select>
-            <Btn variant="primary" onClick={() => setBulkOpen(true)}>บันทึก {nf(roomPending)} ชิ้น</Btn>
+            {NOTE_REQUIRED.includes(bulkStatus) && (
+              <input
+                value={bulkNote}
+                onChange={(e) => setBulkNote(e.target.value)}
+                placeholder="หมายเหตุ (จำเป็น)"
+                className="rounded-lg border border-warn bg-surface px-3 py-2 text-[13px] placeholder:text-faint"
+              />
+            )}
+            <Btn
+              variant="primary"
+              disabled={NOTE_REQUIRED.includes(bulkStatus) && !bulkNote.trim()}
+              onClick={() => setBulkOpen(true)}
+            >
+              บันทึก {nf(roomPending)} ชิ้น
+            </Btn>
           </div>
         )}
         <ul className="divide-y divide-line">
@@ -244,6 +277,11 @@ export default function InspectionPage() {
                     </p>
                   )}
                 </div>
+                {isOpen && inspection.isCommittee && (
+                  <Link to={`/assets/${item.assetId}?edit=1`} className="text-[12px] text-muted hover:text-brand hover:underline whitespace-nowrap">
+                    แก้ข้อมูล
+                  </Link>
+                )}
                 {item.checked && <StatusPill status={item.status} />}
                 {item.checked && isOpen && item.canInspect && editingId !== item.assetId && (
                   <button onClick={() => setEditingId(item.assetId)} className="text-[12px] text-brand hover:underline whitespace-nowrap">
@@ -251,18 +289,20 @@ export default function InspectionPage() {
                   </button>
                 )}
               </div>
-              {/* ยังไม่ตรวจ = แสดงปุ่มเลย, ตรวจแล้ว = ต้องกด "แก้ไขผล" ก่อน (กันกดซ้ำโดยไม่ตั้งใจ) */}
+              {item.checked && item.note && editingId !== item.assetId && (
+                <p className="text-[12px] text-muted">หมายเหตุ: {item.note}</p>
+              )}
+              {/* ยังไม่ตรวจ = เลือกผลได้เลย, ตรวจแล้ว = ต้องกด "แก้ไขผล" ก่อน (กันแก้โดยไม่ตั้งใจ) */}
               {isOpen && item.canInspect && (!item.checked || editingId === item.assetId) && (
-                <div className="space-y-1">
-                  <InspectButtons
-                    current={item.status}
-                    disabled={submittingId === item.assetId}
-                    onPick={(s) => markStatus(item.assetId, s)}
-                  />
-                  {editingId === item.assetId && (
-                    <button onClick={() => setEditingId(null)} className="text-[12px] text-muted hover:underline">ยกเลิกการแก้ไข</button>
-                  )}
-                </div>
+                <InspectPicker
+                  key={`${item.assetId}-${editingId === item.assetId}`}
+                  current={item.checked ? item.status : ''}
+                  currentNote={item.note}
+                  assetLabel={`${item.code} ${item.name}`}
+                  disabled={submittingId === item.assetId}
+                  onSave={(st, note) => markStatus(item.assetId, st, note)}
+                  onCancel={editingId === item.assetId ? () => setEditingId(null) : undefined}
+                />
               )}
             </li>
           ))}
@@ -282,13 +322,14 @@ export default function InspectionPage() {
           />
         )}
       </Card>
+      )}
 
       <RoundHistory excludeId={inspection.id} />
 
       <ConfirmDialog
         open={bulkOpen}
         title={`ยืนยันห้อง ${room || 'ไม่ระบุสถานที่'}`}
-        message={`บันทึกผล "${STATUS[bulkStatus].label}" ให้ครุภัณฑ์ที่ยังไม่ได้ตรวจ ${nf(roomPending)} ชิ้นในห้องนี้? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
+        message={`บันทึกผล "${STATUS[bulkStatus].label}"${bulkNote.trim() && NOTE_REQUIRED.includes(bulkStatus) ? ` (หมายเหตุ: ${bulkNote.trim()})` : ''} ให้ครุภัณฑ์ที่ยังไม่ได้ตรวจ ${nf(roomPending)} ชิ้นในห้องนี้? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
         confirmLabel={`บันทึก "${STATUS[bulkStatus].label}" ทั้งหมด`}
         loading={bulking}
         onConfirm={handleBulk}

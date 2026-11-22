@@ -13,6 +13,8 @@ function toAssetDto(a) {
     room: a.location?.label || "",
     location: a.location || {},
     owner: a.holderName || "",
+    note: a.note || "",
+    fundSource: a.fundSource || "",
     holderUser: a.holderUser ? String(a.holderUser) : null,
     budget: a.budget || "ไม่ระบุ",
     price: a.price ?? null,
@@ -35,6 +37,8 @@ function fromAssetInput(body = {}) {
   if (body.brand !== undefined) out.brand = str(body.brand);
   if (body.cat !== undefined) out.category = str(body.cat);
   if (body.owner !== undefined) out.holderName = str(body.owner);
+  if (body.note !== undefined) out.note = str(body.note);
+  if (body.fundSource !== undefined) out.fundSource = str(body.fundSource);
   if (body.holderUser !== undefined) out.holderUser = body.holderUser || null;
   if (body.budget !== undefined) out.budget = str(body.budget);
   if (body.status !== undefined) out.status = str(body.status);
@@ -54,7 +58,7 @@ function fromAssetInput(body = {}) {
   return out;
 }
 
-const FIELD_LABELS = { status: "สถานะ", location: "สถานที่", building: "ตึก/อาคาร", floor: "ชั้น", room: "ห้อง", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ" };
+const FIELD_LABELS = { assetCode: "เลขครุภัณฑ์", name: "ชื่อ", model: "รุ่น", category: "ประเภท", budget: "งบประมาณ", price: "ราคา", status: "สถานะ", location: "สถานที่", building: "ตึก/อาคาร", floor: "ชั้น", room: "ห้อง", holderName: "ผู้ถือครอง", brand: "ยี่ห้อ", note: "หมายเหตุ", fundSource: "แหล่งเงิน" };
 
 function historySummary(h) {
   if (h.action === "create") return "เพิ่มครุภัณฑ์เข้าระบบ";

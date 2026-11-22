@@ -25,6 +25,11 @@ export const ICONS = {
     { tag: 'path', d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z' },
     { tag: 'path', d: 'M14 3v5h5' },
   ],
+  chevron: [{ tag: 'path', d: 'm6 9 6 6 6-6' }],
+  eye: [
+    { tag: 'path', d: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z' },
+    { tag: 'circle', cx: 12, cy: 12, r: 3 },
+  ],
   search: [
     { tag: 'circle', cx: 11, cy: 11, r: 7 },
     { tag: 'path', d: 'm20 20-3.5-3.5' },
@@ -64,6 +69,11 @@ export const ICONS = {
     { tag: 'path', d: 'M3.5 20a5.5 5.5 0 0 1 11 0' },
     { tag: 'path', d: 'M16 8.5a3 3 0 1 1 3.3 5.9' },
     { tag: 'path', d: 'M14.5 14.2c2.6.2 4.7 1.8 5 5.8' },
+  ],
+  activity: [{ tag: 'path', d: 'M3 12h4l3-8 4 16 3-8h4' }],
+  book: [
+    { tag: 'path', d: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z' },
+    { tag: 'path', d: 'M4 19a2 2 0 0 1 2-2h13M9 7h6' },
   ],
   shield: [
     { tag: 'path', d: 'M12 3l7 3v6c0 5-3.4 8.4-7 9-3.6-.6-7-4-7-9V6l7-3Z' },

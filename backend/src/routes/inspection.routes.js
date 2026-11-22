@@ -1,10 +1,12 @@
 const express = require("express");
-const { protect, requireRole } = require("../middleware/auth.middleware");
+const { protect, requireRole, requireEditor } = require("../middleware/auth.middleware");
 const c = require("../controllers/inspection.controller");
 
 const router = express.Router();
 router.use(protect);
+// แต่งตั้งกรรมการ (= เปิดรอบ / แก้รายชื่อ): ผู้ดูแลระบบเท่านั้น — ปิดรอบ: ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่
 const admin = requireRole("admin");
+const editor = requireEditor;
 
 router.get("/", c.list);
 router.get("/active", c.active);
@@ -13,7 +15,7 @@ router.get("/:id", c.get);
 router.get("/:id/progress", c.progress);
 router.post("/:id/items", c.submitItem);
 router.post("/:id/bulk", c.bulkRoom); // สิทธิ์ตรวจละเอียดใน controller (กรรมการ / ผู้ถือครอง)
-router.put("/:id/close", admin, c.close);
+router.put("/:id/close", editor, c.close);
 router.post("/:id/committee", admin, c.setCommittee);
 
 module.exports = router;

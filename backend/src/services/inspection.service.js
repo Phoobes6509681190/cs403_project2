@@ -1,8 +1,9 @@
 const Inspection = require("../models/Inspection");
 const InspectionItem = require("../models/InspectionItem");
 
-// ผลตรวจที่เลือกได้ (ตัดโอนไม่ใช่ผลจากการตรวจ — เป็นการเปลี่ยนสถานะโดย Admin)
-const INSPECT_RESULTS = ["ok", "broken", "disposal", "unneeded", "missing"];
+// ผลตรวจที่เลือกได้ — "จำหน่ายแล้ว" และ "หาไม่พบ" ต้องใส่หมายเหตุ (ตาม feedback UAT)
+const INSPECT_RESULTS = ["ok", "broken", "disposal", "unneeded", "transferred", "missing"];
+const NOTE_REQUIRED = ["transferred", "missing"];
 
 const getOpenInspection = () => Inspection.findOne({ status: "open" }).sort({ createdAt: -1 });
 
@@ -12,7 +13,7 @@ const isCommittee = (inspection, user) =>
   inspection.committee.some((id) => String(id) === String(user?.userId));
 
 // เห็นรายการทั้งหมดของรอบ: กรรมการ หรือ Admin (ดูความคืบหน้าอย่างเดียว)
-const canViewAll = (inspection, user) => user?.role === "admin" || isCommittee(inspection, user);
+const canViewAll = (inspection, user) => ["admin", "staff"].includes(user?.role) || isCommittee(inspection, user);
 
 // ตรวจชิ้นนี้ได้ไหม: กรรมการรอบนี้ / ผู้ถือครองที่ผูกบัญชีไว้ (self-check)
 const canInspectItem = (inspection, item, user) =>
@@ -37,4 +38,4 @@ async function progressOf(inspectionId) {
   return out;
 }
 
-module.exports = { INSPECT_RESULTS, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf };
+module.exports = { INSPECT_RESULTS, NOTE_REQUIRED, getOpenInspection, isCommittee, canViewAll, canInspectItem, progressOf };

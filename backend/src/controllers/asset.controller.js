@@ -1,12 +1,13 @@
 const mongoose = require("mongoose");
 const Asset = require("../models/Asset");
 const AssetHistory = require("../models/AssetHistory");
-const { STATUS_KEYS } = require("../constants/status");
+const { STATUS_KEYS, NOT_COUNTED } = require("../constants/status");
 const escapeRegex = require("../utils/escapeRegex");
 const { getBudgetMap, budgetNameFromCode } = require("../services/budget.service");
 const { toAssetDto, fromAssetInput, toHistoryDto } = require("../services/assetDto");
 const InspectionItem = require("../models/InspectionItem");
-const { getOpenInspection, canInspectItem } = require("../services/inspection.service");
+const { getOpenInspection, canInspectItem, isCommittee } = require("../services/inspection.service");
+const { isEditor } = require("../constants/roles");
 
 const fail = (res, code, message) => res.status(code).json({ success: false, message });
 const isId = (id) => mongoose.isValidObjectId(id);
@@ -16,8 +17,32 @@ const actor = (req) => ({ changedBy: req.user?.userId, changedByName: req.user?.
 const TRACKED = [
   ["status", (a) => a.status],
   ["location", (a) => a.location?.label || ""],
-  ["holderName", (a) => a.holderName || ""]
+  ["holderName", (a) => a.holderName || ""],
+  ["assetCode", (a) => a.assetCode || ""],
+  ["name", (a) => a.name || ""],
+  ["brand", (a) => a.brand || ""],
+  ["model", (a) => a.model || ""],
+  ["category", (a) => a.category || ""],
+  ["budget", (a) => a.budget || ""],
+  ["price", (a) => (a.price === undefined || a.price === null ? "" : String(a.price))],
+  ["note", (a) => a.note || ""]
 ];
+
+// ค่าดิบทุกคอลัมน์จากไฟล์ Excel (เก็บไว้ตอนนำเข้า) — ส่งเฉพาะหน้ารายละเอียด ตัดช่องว่าง/"-"
+function legacyDto(legacy) {
+  if (!legacy || typeof legacy !== "object") return null;
+  const columns = Object.entries(legacy)
+    .filter(([k, v]) => !k.startsWith("_") && v !== null && v !== undefined && !["", "-"].includes(String(v).trim()))
+    .map(([label, value]) => ({ label, value: String(value) }));
+  return {
+    file: legacy._file || "", sheet: legacy._sheet || "", row: legacy._row || null, importedAt: legacy._importedAt || null,
+    columns
+  };
+}
+
+// กรรมการตรวจนับ (ที่ไม่ใช่ผู้ดูแล/ผู้ใช้) แก้ข้อมูลที่ขาดได้ระหว่างรอบที่เปิด — เฉพาะช่องรายละเอียด
+// ห้ามแก้เลขครุภัณฑ์ งบ ราคา สถานะ (สถานะต้องเปลี่ยนผ่านผลตรวจ)
+const COMMITTEE_FIELDS = ["name", "brand", "model", "category", "location", "locationLabel", "holderName", "note"];
 
 function applyInput(asset, input) {
   const { locationLabel, location, ...rest } = input;
@@ -29,6 +54,17 @@ function applyInput(asset, input) {
   }
 }
 
+// คอลัมน์ที่กรองแบบค่าตรงตัวได้ และเรียงลำดับได้ (ชื่อพารามิเตอร์ -> ฟิลด์ใน DB)
+const COLUMN_FILTERS = {
+  building: "location.building", floor: "location.floor", roomNo: "location.room",
+  cat: "category", brand: "brand", model: "model", code: "assetCode", name: "name"
+};
+const SORTS = {
+  building: "location.building", floor: "location.floor", roomNo: "location.room", room: "location.label",
+  status: "status", code: "assetCode", name: "name", brand: "brand", model: "model", cat: "category",
+  owner: "holderName", budget: "budget", createdAt: "createdAt"
+};
+
 // ตัวกรองเดียวกันทั้งหน้ารายการและ "ลบทั้งหมดตามตัวกรอง"
 function buildFilter(query = {}, user) {
   const { q, status, room, budget, holder } = query;
@@ -37,6 +73,13 @@ function buildFilter(query = {}, user) {
   if (room) filter["location.label"] = String(room);
   if (budget) filter.budget = String(budget);
   if (holder) filter.holderName = String(holder);
+  // กรองรายคอลัมน์ (ค่าตรงตัว จาก dropdown)
+  for (const [param, path] of Object.entries(COLUMN_FILTERS)) {
+    if (query[param] !== undefined && query[param] !== "") filter[path] = String(query[param]);
+  }
+  // ?year=57 — ปีงบประมาณจากเลขครุภัณฑ์ (ใช้กับ "ลบทั้งหมดของปีนั้น")
+  const year = parseInt(query.year, 10);
+  if (Number.isFinite(year)) filter["codeParts.year"] = year;
   // ?holderUser=me — ครุภัณฑ์ที่ฉันถือครอง (หน้าโปรไฟล์)
   if (query.holderUser === "me" && user) filter.holderUser = user.userId;
   // ?qr=unprinted — เฉพาะชิ้นที่ยังไม่เคยพิมพ์สติกเกอร์ QR (เช่น ของที่เพิ่ง import เข้ามา)
@@ -51,6 +94,30 @@ function buildFilter(query = {}, user) {
   return filter;
 }
 
+// ?sort=name&dir=asc|desc (หรือ sort=-createdAt แบบเดิม) — ไม่ระบุ = เรียงตามปีงบล่าสุดและลำดับชิ้น
+function sortOf(query) {
+  const raw = String(query.sort || "");
+  const desc = raw.startsWith("-") || query.dir === "desc";
+  const path = SORTS[raw.replace(/^-/, "")];
+  if (!path) return { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 };
+  return { [path]: desc ? -1 : 1, _id: desc ? -1 : 1 };
+}
+
+// GET /api/assets/options — ค่าที่มีอยู่แล้วของแต่ละช่อง (ทำ dropdown ที่พิมพ์ค้นหาได้ แทนการพิมพ์อิสระ)
+exports.getOptions = async (req, res) => {
+  try {
+    const live = { isDeleted: false };
+    const fields = { building: "location.building", floor: "location.floor", roomNo: "location.room", room: "location.label",
+      cat: "category", brand: "brand", model: "model", owner: "holderName", budget: "budget" };
+    const entries = await Promise.all(
+      Object.entries(fields).map(async ([k, path]) => [k, (await Asset.distinct(path, live)).filter((v) => v !== null && v !== "").map(String).sort((a, b) => a.localeCompare(b, "th", { numeric: true }))])
+    );
+    res.json({ success: true, ...Object.fromEntries(entries) });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+};
+
 // GET /api/assets?q=&status=&room=&budget=&page=1&perPage=10
 exports.getAssets = async (req, res) => {
   try {
@@ -59,13 +126,14 @@ exports.getAssets = async (req, res) => {
 
     const filter = buildFilter(req.query, req.user);
 
-    const [items, total, rooms, budgets, qrUnprinted] = await Promise.all([
-      Asset.find(filter).sort(req.query.sort === "-createdAt" ? { createdAt: -1, _id: -1 } : { "codeParts.year": -1, "codeParts.total": 1, "codeParts.seq": 1, _id: 1 })
+    const [items, total, rooms, budgets, qrUnprinted, years] = await Promise.all([
+      Asset.find(filter).sort(sortOf(req.query))
         .skip((page - 1) * perPage).limit(perPage).lean(),
       Asset.countDocuments(filter),
       Asset.distinct("location.label", { isDeleted: false }),
       Asset.distinct("budget", { isDeleted: false }),
-      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $ne: "transferred" } })
+      Asset.countDocuments({ isDeleted: false, qrPrintedAt: null, status: { $nin: NOT_COUNTED } }),
+      Asset.distinct("codeParts.year", { isDeleted: false })
     ]);
 
     res.json({
@@ -76,7 +144,8 @@ exports.getAssets = async (req, res) => {
       perPage,
       rooms: rooms.filter(Boolean).sort(),
       budgets: budgets.filter(Boolean).sort(),
-      qrUnprinted
+      qrUnprinted,
+      years: years.filter((y) => Number.isFinite(y)).sort((a, b) => b - a)
     });
   } catch (error) {
     fail(res, 500, error.message);
@@ -103,11 +172,14 @@ exports.getAsset = async (req, res) => {
           result: item.result,
           checkedBy: item.checkedByName || "",
           checkedAt: item.checkedAt || null,
-          canInspect: canInspectItem(open, item, req.user)
+          note: item.note || "",
+          canInspect: canInspectItem(open, item, req.user),
+          // กรรมการรอบนี้แก้ข้อมูลที่ขาดได้ (เฉพาะช่องรายละเอียด)
+          isCommittee: isCommittee(open, req.user)
         };
       }
     }
-    res.json({ ...toAssetDto(asset), inspection });
+    res.json({ ...toAssetDto(asset), legacy: legacyDto(asset.legacy), inspection });
   } catch (error) {
     fail(res, 500, error.message);
   }
@@ -130,15 +202,24 @@ exports.createAsset = async (req, res) => {
   }
 };
 
-// PUT /api/assets/:id (admin)
+// PUT /api/assets/:id (ผู้ดูแลระบบ/ผู้ใช้ — หรือกรรมการรอบที่เปิดอยู่ แก้ได้เฉพาะช่องรายละเอียด)
 exports.updateAsset = async (req, res) => {
   try {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
+    let input = fromAssetInput(req.body);
+    let byCommittee = false;
+    if (!isEditor(req.user)) {
+      const open = await getOpenInspection();
+      if (!open || !isCommittee(open, req.user)) return fail(res, 403, "คุณไม่มีสิทธิ์แก้ไขข้อมูลนี้");
+      const inRound = await InspectionItem.exists({ inspection: open._id, asset: req.params.id });
+      if (!inRound) return fail(res, 403, "แก้ไขได้เฉพาะครุภัณฑ์ในรอบตรวจนับที่เปิดอยู่");
+      input = Object.fromEntries(Object.entries(input).filter(([k]) => COMMITTEE_FIELDS.includes(k)));
+      byCommittee = true;
+    }
     const asset = await Asset.findOne({ _id: req.params.id, isDeleted: false });
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
 
     const before = TRACKED.map(([f, get]) => [f, get(asset)]);
-    const input = fromAssetInput(req.body);
     applyInput(asset, input);
     if (input.assetCode !== undefined && input.budget === undefined) {
       asset.budget = budgetNameFromCode(asset.assetCode, await getBudgetMap()) || asset.budget;
@@ -146,21 +227,19 @@ exports.updateAsset = async (req, res) => {
     await asset.save();
 
     // ผูกบัญชีผู้ถือครองใหม่ -> ให้ผู้ถือคนใหม่ยืนยันในรอบที่เปิดอยู่ได้ทันที
-    if (input.holderUser !== undefined) {
-      const open = await getOpenInspection();
-      if (open) {
-        await InspectionItem.updateOne(
-          { inspection: open._id, asset: asset._id },
-          { holderUser: asset.holderUser || null, "snapshot.holderName": asset.holderName || "" }
-        );
-      }
+    // อัปเดตสำเนาในรอบที่เปิดอยู่ให้ตรง (ชื่อ/สถานที่/ผู้ถือ) — ผูกบัญชีใหม่ก็ยืนยันเองได้ทันที
+    const open = await getOpenInspection();
+    if (open) {
+      const snap = { "snapshot.name": asset.name, "snapshot.room": asset.location?.label || "", "snapshot.holderName": asset.holderName || "" };
+      if (input.holderUser !== undefined) snap.holderUser = asset.holderUser || null;
+      await InspectionItem.updateOne({ inspection: open._id, asset: asset._id }, snap);
     }
 
     const changes = before
       .map(([field, oldValue], i) => ({ field, oldValue, newValue: TRACKED[i][1](asset) }))
       .filter((c) => c.oldValue !== c.newValue);
     if (changes.length) {
-      await AssetHistory.create({ asset: asset._id, action: "update", changes, ...actor(req) });
+      await AssetHistory.create({ asset: asset._id, action: byCommittee ? "inspect" : "update", changes, ...actor(req) });
     }
 
     res.json(toAssetDto(asset));
@@ -175,7 +254,7 @@ exports.deleteAsset = async (req, res) => {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์");
     const asset = await Asset.findOneAndUpdate(
       { _id: req.params.id, isDeleted: false },
-      { isDeleted: true },
+      { isDeleted: true, deletedBy: req.user?.userId },
       { returnDocument: "after" }
     );
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์");
@@ -210,7 +289,7 @@ exports.bulkDelete = async (req, res) => {
     const targets = await Asset.find(filter, { _id: 1 }).lean();
     if (!targets.length) return res.json({ success: true, deleted: 0 });
     const ids = targets.map((a) => a._id);
-    await Asset.updateMany({ _id: { $in: ids }, isDeleted: false }, { isDeleted: true });
+    await Asset.updateMany({ _id: { $in: ids }, isDeleted: false }, { isDeleted: true, deletedBy: req.user?.userId });
     await AssetHistory.insertMany(ids.map((id) => ({ asset: id, action: "delete", ...actor(req) })));
     res.json({ success: true, deleted: ids.length });
   } catch (error) {
@@ -232,7 +311,7 @@ exports.getAssetHistory = async (req, res) => {
 // GET /api/assets/trash (admin) — รายการที่ถูกลบ (soft delete) ล่าสุดก่อน
 exports.getTrash = async (req, res) => {
   try {
-    const items = await Asset.find({ isDeleted: true }).sort({ updatedAt: -1 }).limit(500).lean();
+    const items = await Asset.find({ isDeleted: true, ...ownTrash(req) }).sort({ updatedAt: -1 }).limit(500).lean();
     const ids = items.map((a) => a._id);
     const dels = await AssetHistory.find({ asset: { $in: ids }, action: "delete" }).sort({ createdAt: -1 }).lean();
     const lastDel = new Map();
@@ -255,7 +334,7 @@ exports.restoreAsset = async (req, res) => {
     if (!isId(req.params.id)) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
     const asset = await Asset.findOneAndUpdate(
       { _id: req.params.id, isDeleted: true },
-      { isDeleted: false },
+      { isDeleted: false, $unset: { deletedBy: 1 } },
       { returnDocument: "after" }
     );
     if (!asset) return fail(res, 404, "ไม่พบครุภัณฑ์ในถังขยะ");
@@ -268,6 +347,9 @@ exports.restoreAsset = async (req, res) => {
 
 // ลบถาวรจากถังขยะ (admin) — ลบได้เฉพาะรายการที่อยู่ในถังขยะแล้ว และกู้คืนไม่ได้อีก
 // ผลตรวจนับย้อนหลังยังอยู่ (เก็บสำเนาข้อมูลไว้ใน InspectionItem) รายงานปีเก่าจึงไม่เปลี่ยน
+// ถังขยะเห็นเฉพาะของที่ตัวเองลบ (ของเก่าที่ไม่รู้ว่าใครลบ ทุกคนเห็น)
+const ownTrash = (req) => ({ $or: [{ deletedBy: req.user?.userId }, { deletedBy: { $exists: false } }, { deletedBy: null }] });
+
 async function purge(filter) {
   const assets = await Asset.find({ ...filter, isDeleted: true }, { _id: 1 }).lean();
   const ids = assets.map((a) => a._id);
@@ -293,7 +375,7 @@ exports.purgeAsset = async (req, res) => {
 // DELETE /api/assets/trash — ล้างถังขยะทั้งหมด
 exports.emptyTrash = async (req, res) => {
   try {
-    res.json({ success: true, deleted: await purge({}) });
+    res.json({ success: true, deleted: await purge(ownTrash(req)) });
   } catch (error) {
     fail(res, 500, error.message);
   }

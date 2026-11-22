@@ -1,8 +1,9 @@
+import { roleLabel } from '../data/roles'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, Btn, Field, Avatar, LoadingState, ErrorState, useToast } from '../components/UI'
 import { getUsers } from '../services/userService'
-import { createInspection, getActiveInspection } from '../services/inspectionService'
+import { createInspection, getActiveInspection, appointCommittee } from '../services/inspectionService'
 import { getReportSummary } from '../services/reportService'
 import { useAuth } from '../hooks/useAuth'
 import { nf } from '../utils/format'
@@ -32,6 +33,7 @@ export default function CommitteePage() {
       const [u, a, s] = await Promise.all([getUsers({ active: 1 }), getActiveInspection(), getReportSummary()])
       setUsers(u.items || [])
       setActive(a)
+      if (a) setSelected(a.committee.map((c) => c.id))
       setItemCount(s.total)
       setState('ready')
     } catch {
@@ -67,15 +69,68 @@ export default function CommitteePage() {
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดข้อมูลไม่สำเร็จ" />
 
+  const picker = (
+    <>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="ค้นหาชื่อหรือตำแหน่ง"
+        className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-faint"
+      />
+      <div className="border border-line rounded-xl divide-y divide-line max-h-80 overflow-y-auto">
+        {shown.map((u) => (
+          <label key={u.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-surface2">
+            <input type="checkbox" checked={selected.includes(u.id)} onChange={() => toggle(u.id)} className="w-4 h-4" />
+            <Avatar user={u} size={32} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium">{u.name}</p>
+              <p className="text-[11px] text-faint">{u.position || `@${u.username}`}</p>
+            </div>
+            {u.role !== 'user' && <span className="text-[11px] text-warn">{roleLabel(u.role)}</span>}
+          </label>
+        ))}
+        {shown.length === 0 && <p className="px-4 py-6 text-center text-muted text-[13px]">ไม่พบรายชื่อ</p>}
+      </div>
+    </>
+  )
+
+  // แก้รายชื่อกรรมการของรอบที่เปิดอยู่ (เพิ่ม/ถอดคนออก) — ผลที่บันทึกไปแล้วยังอยู่ครบ
+  const saveCommittee = async () => {
+    setSubmitting(true)
+    try {
+      const data = await appointCommittee(active.id, selected)
+      setActive((a) => ({ ...a, committee: data.committee }))
+      toast.success('บันทึกรายชื่อกรรมการแล้ว')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'บันทึกรายชื่อกรรมการไม่สำเร็จ')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (active) {
+    const same = selected.length === active.committee.length && active.committee.every((c) => selected.includes(c.id))
     return (
-      <Card className="p-6 max-w-2xl space-y-3">
-        <h2 className="font-semibold">มีรอบตรวจนับปี {active.budgetYear} เปิดอยู่</h2>
-        <p className="text-[13px] text-muted">
-          กรรมการ: {active.committee.map((c) => c.name).join(', ')} — ต้องปิดรอบเดิมก่อนจึงจะเริ่มรอบใหม่ได้
-        </p>
-        <Link to="/inspection"><Btn variant="primary">ไปที่รอบตรวจนับ</Btn></Link>
-      </Card>
+      <div className="space-y-4 max-w-2xl">
+        <Card className="p-5 space-y-2">
+          <h2 className="font-semibold">มีรอบตรวจนับปี {active.budgetYear} เปิดอยู่</h2>
+          <p className="text-[13px] text-muted">ต้องปิดรอบเดิมก่อนจึงจะเริ่มรอบใหม่ได้</p>
+          <Link to="/inspection"><Btn variant="primary">ไปที่รอบตรวจนับ</Btn></Link>
+        </Card>
+        <Card className="p-5 space-y-3">
+          <h3 className="font-semibold">แก้ไขรายชื่อกรรมการ</h3>
+          <p className="text-[12px] text-muted">
+            เพิ่มหรือถอดกรรมการได้ระหว่างรอบ — ผลที่กรรมการบันทึกไว้แล้วยังอยู่ครบ และระบบเก็บชื่อผู้ตรวจของแต่ละชิ้นไว้
+          </p>
+          {picker}
+          <div className="flex gap-2">
+            <Btn onClick={() => setSelected(active.committee.map((c) => c.id))} disabled={same || submitting}>คืนค่าเดิม</Btn>
+            <Btn variant="primary" onClick={saveCommittee} disabled={same || !selected.length || submitting}>
+              {submitting ? 'กำลังบันทึก...' : `บันทึกรายชื่อ (${selected.length} คน)`}
+            </Btn>
+          </div>
+        </Card>
+      </div>
     )
   }
 
@@ -92,7 +147,7 @@ export default function CommitteePage() {
       {step === 0 && (
         <Card className="p-5 space-y-4">
           <p className="text-[13px] text-muted">
-            รอบนี้จะตรวจครุภัณฑ์ทั้งหมด {nf(itemCount)} ชิ้น (ไม่รวมที่ตัดโอนแล้ว)
+            รอบนี้จะตรวจครุภัณฑ์ทั้งหมด {nf(itemCount)} ชิ้น (ไม่รวมที่จำหน่ายแล้วและข้อมูลต้องตรวจสอบ)
           </p>
           <Field
             label="ปีงบประมาณ (พ.ศ.)"
@@ -108,26 +163,7 @@ export default function CommitteePage() {
 
       {step === 1 && (
         <Card className="p-5 space-y-3">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="ค้นหาชื่อหรือตำแหน่ง"
-            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-faint"
-          />
-          <div className="border border-line rounded-xl divide-y divide-line max-h-80 overflow-y-auto">
-            {shown.map((u) => (
-              <label key={u.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-surface2">
-                <input type="checkbox" checked={selected.includes(u.id)} onChange={() => toggle(u.id)} className="w-4 h-4" />
-                <Avatar user={u} size={32} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium">{u.name}</p>
-                  <p className="text-[11px] text-faint">{u.position || `@${u.username}`}</p>
-                </div>
-                {u.role === 'admin' && <span className="text-[11px] text-warn">Admin</span>}
-              </label>
-            ))}
-            {shown.length === 0 && <p className="px-4 py-6 text-center text-muted text-[13px]">ไม่พบรายชื่อ</p>}
-          </div>
+          {picker}
           <p className="text-[12px] text-muted">
             <Link to="/users" className="text-brand hover:underline">+ เพิ่มผู้ใช้</Link>
           </p>

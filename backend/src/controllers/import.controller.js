@@ -2,7 +2,7 @@ const Asset = require("../models/Asset");
 const Budget = require("../models/Budget");
 const AssetHistory = require("../models/AssetHistory");
 const { STATUS_KEYS, statusFromLabel } = require("../constants/status");
-const { parseWorkbook } = require("../services/import.service");
+const { parseWorkbook, FIELDS } = require("../services/import.service");
 const { getBudgetMap } = require("../services/budget.service");
 const { classify, rowLocationLabel, LOCATION_PARTS } = require("../services/importCompare");
 
@@ -15,7 +15,13 @@ function readUpload(req) {
     err.status = 400;
     throw err;
   }
-  return parseWorkbook(req.file.buffer);
+  // ชีตและการจับคู่คอลัมน์ที่ผู้ใช้เลือกในหน้า Import (ส่งมาทั้งตอน preview และตอนบันทึก)
+  const sheets = parseJson(req.body?.sheets);
+  return parseWorkbook(req.file.buffer, {
+    sheets: Array.isArray(sheets) && sheets.length ? sheets : undefined,
+    sheet: req.body?.sheet || undefined,
+    mapping: parseJson(req.body?.mapping)
+  });
 }
 
 const parseJson = (s) => {
@@ -24,7 +30,7 @@ const parseJson = (s) => {
 
 // ครุภัณฑ์ทั้งหมดที่ยังไม่ถูกลบ — ใช้เทียบกับไฟล์
 const loadAssets = () =>
-  Asset.find({ isDeleted: false }, { assetCode: 1, name: 1, status: 1, location: 1, holderName: 1, brand: 1 }).lean();
+  Asset.find({ isDeleted: false }, { assetCode: 1, name: 1, status: 1, location: 1, holderName: 1, brand: 1, model: 1, category: 1, note: 1, fundSource: 1 }).lean();
 
 const statusResolver = (statusMapping = {}) => (r) => {
   const k = r.statusKey || statusMapping[r.statusLabel];
@@ -49,21 +55,32 @@ exports.preview = async (req, res) => {
       if (!r.statusKey) unknownStatuses.set(r.statusLabel, (unknownStatuses.get(r.statusLabel) || 0) + 1);
     }
     for (const r of c.fresh) {
-      if (!r.codeRecognized) unrecognizedCodes++;
-      else if (!budgetMap.has(r.budgetAbbr)) {
+      // แยกตัวย่อไม่ได้แต่มีแหล่งเงิน -> ใช้แหล่งเงินเป็นงบ ไม่ต้องถาม
+      if (!r.codeRecognized) {
+        if (!r.data.fundSource) unrecognizedCodes++;
+        continue;
+      }
+      if (!budgetMap.has(r.budgetAbbr)) {
         const u = unknownBudgets.get(r.budgetAbbr) || { abbr: r.budgetAbbr, count: 0, example: r.data.assetCode };
         u.count++;
         unknownBudgets.set(r.budgetAbbr, u);
       }
     }
 
-    const sameRows = new Set(c.same.map((x) => x.row.row));
-    const changedRows = new Set(c.changed.map((x) => x.row.row));
-    const changedByRow = new Map(c.changed.map((x) => [x.row.row, x]));
-    const dupRows = new Set(c.dupInFile.map((r) => r.row));
+    // แถวอ้างอิงด้วย ref (ชีต!แถว) เพราะเลขแถวซ้ำกันได้เมื่อนำเข้าหลายชีต
+    const sameRows = new Set(c.same.map((x) => x.row.ref));
+    const changedRows = new Set(c.changed.map((x) => x.row.ref));
+    const changedByRow = new Map(c.changed.map((x) => [x.row.ref, x]));
+    const dupRows = new Set(c.dupInFile.map((r) => r.ref));
 
     res.json({
       success: true,
+      sheets: parsed.sheets,
+      sheet: parsed.sheet,
+      selectedSheets: parsed.selectedSheets,
+      sheetInfo: parsed.sheetInfo,
+      mapping: parsed.mapping,
+      fields: FIELDS.map(({ key, label, required }) => ({ key, label, required: !!required })),
       headerRow: parsed.headerRow,
       headers: parsed.headers,
       unknownColumns: parsed.unknownColumns,
@@ -72,16 +89,16 @@ exports.preview = async (req, res) => {
       readyRows: c.fresh.length, // จำนวนที่จะ "เพิ่มใหม่"
       sameRows: c.same.length,
       duplicates: c.same.length + c.changed.length, // คงไว้ให้หน้าเว็บเดิมใช้ได้
-      dupInFile: c.dupInFile.map((r) => ({ row: r.row, reason: "ซ้ำกับแถวก่อนหน้าในไฟล์ (เลขและชื่อเดียวกัน)" })),
+      dupInFile: c.dupInFile.map((r) => ({ row: r.row, sheet: r.sheet, reason: "ซ้ำกับแถวก่อนหน้าในไฟล์/ชีตอื่น (เลขและชื่อเดียวกัน)" })),
       unrecognizedCodes,
-      errors: c.invalid.map((r) => ({ row: r.row, reason: r.errors.join(", ") })),
+      errors: c.invalid.map((r) => ({ row: r.row, sheet: r.sheet, reason: r.errors.join(", ") })),
       unknownStatuses: [...unknownStatuses].map(([label, count]) => ({ label, count })),
       unknownBudgets: [...unknownBudgets.values()],
       budgets: [...new Set(budgetMap.values())],
       statuses: STATUS_KEYS,
       // ต่างจากในระบบ — Admin เลือกรายฟิลด์ว่าจะใช้ค่าจากไฟล์หรือคงค่าเดิม
       changed: c.changed.slice(0, PREVIEW_LIMIT).map((x) => ({
-        row: x.row.row, assetId: String(x.asset._id), code: x.asset.assetCode, name: x.asset.name, diffs: x.diffs
+        row: x.row.row, sheet: x.row.sheet, assetId: String(x.asset._id), code: x.asset.assetCode, name: x.asset.name, diffs: x.diffs
       })),
       changedTotal: c.changed.length,
       // ในระบบแต่ไม่อยู่ในไฟล์ — แจ้งให้ตรวจสอบ ไม่เปลี่ยนอะไรอัตโนมัติ
@@ -89,10 +106,11 @@ exports.preview = async (req, res) => {
       missingTotal: c.missing.length,
       // ทุกแถวของไฟล์ (สูงสุด 500) พร้อมผลเทียบ — หน้าเว็บแสดงเป็นตารางคอลัมน์เดียวกับไฟล์
       rows: parsed.rows.slice(0, 500).map((r) => {
-        const ch = changedByRow.get(r.row);
-        const kind = r.errors.length ? "invalid" : dupRows.has(r.row) ? "dup" : ch ? "changed" : sameRows.has(r.row) ? "same" : "new";
+        const ch = changedByRow.get(r.ref);
+        const kind = r.errors.length ? "invalid" : dupRows.has(r.ref) ? "dup" : ch ? "changed" : sameRows.has(r.ref) ? "same" : "new";
         return {
           row: r.row,
+          sheet: r.sheet,
           kind,
           building: r.data.location?.building || "",
           floor: r.data.location?.floor || "",
@@ -116,13 +134,14 @@ exports.preview = async (req, res) => {
         statusKey: r.statusKey,
         budgetAbbr: r.budgetAbbr,
         budget: r.budgetAbbr ? budgetMap.get(r.budgetAbbr) || null : null,
-        duplicate: sameRows.has(r.row) || changedRows.has(r.row),
-        changed: changedRows.has(r.row),
+        duplicate: sameRows.has(r.ref) || changedRows.has(r.ref),
+        changed: changedRows.has(r.ref),
         errors: r.errors
       }))
     });
   } catch (error) {
-    fail(res, error.status || 500, error.message);
+    // หาหัวตารางไม่เจอ: ส่งรายชื่อชีตกลับไปให้ผู้ใช้เลือกชีตอื่นได้
+    res.status(error.status || 500).json({ success: false, message: error.message, sheets: error.sheets });
   }
 };
 
@@ -149,22 +168,23 @@ exports.commit = async (req, res) => {
     const c = classify(parsed.rows, assets, resolve);
     const who = { changedBy: req.user?.userId, changedByName: req.user?.name || req.user?.username };
 
-    const failedRows = c.invalid.map((r) => ({ row: r.row, reason: r.errors.join(", ") }));
-    const skippedRows = c.dupInFile.map((r) => ({ row: r.row, reason: "ซ้ำกับแถวก่อนหน้าในไฟล์" }));
+    const failedRows = c.invalid.map((r) => ({ row: r.row, sheet: r.sheet, reason: r.errors.join(", ") }));
+    const skippedRows = c.dupInFile.map((r) => ({ row: r.row, sheet: r.sheet, reason: "ซ้ำกับแถวก่อนหน้าในไฟล์/ชีตอื่น" }));
 
     // 1) เพิ่มรายการใหม่
     const docs = [];
     for (const r of c.fresh) {
       const status = resolve(r);
       if (!status) {
-        failedRows.push({ row: r.row, reason: `ไม่รู้จักสถานะ "${r.statusLabel}"` });
+        failedRows.push({ row: r.row, sheet: r.sheet, reason: `ไม่รู้จักสถานะ "${r.statusLabel}"` });
         continue;
       }
       docs.push({
         ...r.data,
         status,
-        budget: (r.budgetAbbr && budgetMap.get(r.budgetAbbr)) || "ไม่ระบุ",
-        legacy: { ...r.raw, _row: r.row, _file: req.file.originalname, _importedAt: new Date() }
+        // งบหลักจากตัวย่อในเลขครุภัณฑ์ (แยกงบพิเศษ/งบกองทุนได้) ถ้าแยกไม่ได้จึงใช้แหล่งเงิน
+        budget: (r.budgetAbbr && budgetMap.get(r.budgetAbbr)) || r.data.fundSource || "ไม่ระบุ",
+        legacy: { ...r.raw, _row: r.row, _sheet: r.sheet, _file: req.file.originalname, _importedAt: new Date() }
       });
     }
     let inserted = [];
@@ -174,7 +194,7 @@ exports.commit = async (req, res) => {
       } catch (e) {
         inserted = e.insertedDocs || [];
         for (const we of e.writeErrors || []) {
-          failedRows.push({ row: docs[we.index]?.legacy?._row, reason: we.errmsg || "บันทึกไม่สำเร็จ" });
+          failedRows.push({ row: docs[we.index]?.legacy?._row, sheet: docs[we.index]?.legacy?._sheet, reason: we.errmsg || "บันทึกไม่สำเร็จ" });
         }
       }
     }
@@ -188,7 +208,7 @@ exports.commit = async (req, res) => {
       const chosen = updates ? new Set(updates[String(x.asset._id)] || []) : null;
       const apply = chosen ? x.diffs.filter((d) => chosen.has(d.field)) : x.diffs;
       if (!apply.length) {
-        skippedRows.push({ row: x.row.row, reason: "คงค่าในระบบ (ไม่ได้เลือกใช้ค่าจากไฟล์)" });
+        skippedRows.push({ row: x.row.row, sheet: x.row.sheet, reason: "คงค่าในระบบ (ไม่ได้เลือกใช้ค่าจากไฟล์)" });
         continue;
       }
       const asset = await Asset.findById(x.asset._id);
@@ -205,6 +225,8 @@ exports.commit = async (req, res) => {
           };
         } else asset[d.field] = d.incoming;
       }
+      // เก็บค่าดิบจากไฟล์ล่าสุดไว้ด้วย (คอลัมน์อื่นที่ไม่ได้จับคู่ก็ยังดูได้ในหน้ารายละเอียด)
+      asset.legacy = { ...x.row.raw, _row: x.row.row, _sheet: x.row.sheet, _file: req.file.originalname, _importedAt: new Date() };
       await asset.save();
       await AssetHistory.create({
         asset: asset._id,
@@ -226,7 +248,7 @@ exports.commit = async (req, res) => {
       sameCount: c.same.length,
       skippedCount: skippedRows.length,
       skippedRows,
-      failedRows: failedRows.sort((a, b) => (a.row || 0) - (b.row || 0))
+      failedRows
     });
   } catch (error) {
     fail(res, error.status || 500, error.message);
@@ -236,7 +258,7 @@ exports.commit = async (req, res) => {
 // GET /api/assets/import/template — ดาวน์โหลดไฟล์ Template
 exports.template = (req, res) => {
   const XLSX = require("xlsx");
-  const headers = ["ตึก/อาคาร", "ชั้น", "ห้อง", "ระบุ สถานที่ใช้งาน", "สภาพ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์", "ยี่ห้อ", "ผู้ถือครอง"];
+  const headers = ["ตึก/อาคาร", "ชั้น", "ห้อง", "สถานที่ใช้งาน", "สภาพ", "รหัสสินทรัพย์อ้างอิง", "ชื่อสินทรัพย์", "ยี่ห้อ", "ผู้ถือครอง"];
   const example = ["บร.2", "1", "107", "บร.2 ชั้น 1 ห้อง 107", "ปกติ", "วทท-8พ-57-1/80", "เทคโนโลยีสารสนเทศเพื่อการเรียนการสอน", "DELL", ""];
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(10, h.length + 4) }));

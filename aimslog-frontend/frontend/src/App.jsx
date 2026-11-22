@@ -19,6 +19,8 @@ import ForceChangePasswordPage from './pages/ForceChangePasswordPage'
 import UsersPage from './pages/UsersPage'
 import TrashPage from './pages/TrashPage'
 import LoginLogsPage from './pages/LoginLogsPage'
+import ActivityPage from './pages/ActivityPage'
+import ManualPage from './pages/ManualPage'
 import ForbiddenPage from './pages/ForbiddenPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -49,19 +51,24 @@ export default function App() {
             <Route path="/assets" element={<AssetListPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
 
-            {/* เฉพาะ Admin เท่านั้น (ดู RoleRoute.jsx) */}
-            <Route element={<RoleRoute allow={['admin']} />}>
+            {/* ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่ (ดู RoleRoute.jsx) */}
+            <Route element={<RoleRoute allow={['admin', 'staff']} />}>
               <Route path="/assets/import" element={<AssetImportPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />
-              <Route path="/inspection/committee" element={<CommitteePage />} />
+            </Route>
+            {/* ผู้ดูแลระบบเท่านั้น */}
+            <Route element={<RoleRoute allow={['admin']} />}>
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/inspection/committee" element={<CommitteePage />} />
               <Route path="/trash" element={<TrashPage />} />
               <Route path="/login-logs" element={<LoginLogsPage />} />
+              <Route path="/activity" element={<ActivityPage />} />
             </Route>
 
             <Route path="/inspection" element={<InspectionPage />} />
             <Route path="/inspection/:id" element={<InspectionPage />} />
             <Route path="/reports" element={<ReportPage />} />
+            <Route path="/manual" element={<ManualPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/account" element={<Navigate to="/profile" replace />} />
           </Route>

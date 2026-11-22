@@ -1,36 +1,57 @@
+import { canEdit as canEditRole, canDelete } from '../data/roles'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getUsers } from '../services/userService'
 import Icon from '../components/icon'
 import {
-  Card, Btn, StatusPill, Field, SelectField, Modal, ConfirmDialog,
-  LoadingState, ErrorState, EmptyState, useToast,
+  Card, Btn, StatusPill, Modal, ConfirmDialog, Combobox,
+  LoadingState, ErrorState, EmptyState, Spinner, useToast,
 } from '../components/UI'
+import AssetForm, { emptyAssetForm, assetToForm, formToPayload } from '../components/AssetForm'
 import { STATUS_OPTIONS } from '../data/statusConfig'
-import { getAssets, createAsset, updateAsset, deleteAsset, bulkDeleteAssets } from '../services/assetService'
+import { getAssets, getAssetOptions, createAsset, updateAsset, deleteAsset, bulkDeleteAssets } from '../services/assetService'
 import { useDebounce } from '../hooks/useDebounce'
 import { useAuth } from '../hooks/useAuth'
 import { nf } from '../utils/format'
 
 const PER_PAGE = 10
 
-// ประกอบ "ระบุ สถานที่ใช้งาน" จาก ตึก/ชั้น/ห้อง (รูปแบบเดียวกับไฟล์ Excel ของคณะ)
-const composeLocation = (f) =>
-  [f.building, f.floor && `ชั้น ${f.floor}`, f.roomNo && `ห้อง ${f.roomNo}`].filter(Boolean).join(' ')
-
-const emptyForm = {
-  code: '', name: '', model: '', brand: '', cat: '', building: '', floor: '', roomNo: '', room: '', owner: '', holderUser: '', budget: '', price: '', status: 'ok',
-}
+// คอลัมน์ตาราง (เรียงตามไฟล์ Excel ของคณะ + ผู้ถือครอง)
+//   sort = ชื่อที่ส่งให้ API เรียงลำดับ, filter = ชื่อตัวกรองรายคอลัมน์ (dropdown ค่าที่มีอยู่)
+const COLUMNS = [
+  { label: 'ตึก/อาคาร', sort: 'building', filter: 'building', opt: 'building' },
+  { label: 'ชั้น', sort: 'floor', filter: 'floor', opt: 'floor' },
+  { label: 'ห้อง', sort: 'roomNo', filter: 'roomNo', opt: 'roomNo' },
+  { label: 'สถานที่ใช้งาน', sort: 'room', filter: 'room', opt: 'room' },
+  { label: 'สภาพ', sort: 'status', filter: 'status' },
+  { label: 'รหัสสินทรัพย์อ้างอิง', sort: 'code' },
+  { label: 'ชื่อสินทรัพย์', sort: 'name' },
+  { label: 'ยี่ห้อ', sort: 'brand', filter: 'brand', opt: 'brand' },
+  { label: 'รุ่น', sort: 'model', filter: 'model', opt: 'model' },
+  { label: 'ประเภท', sort: 'cat', filter: 'cat', opt: 'cat' },
+  { label: 'ผู้ถือครอง', sort: 'owner', filter: 'holder', opt: 'owner' },
+]
+const emptyFilters = { status: '', room: '', budget: '', year: '', building: '', floor: '', roomNo: '', brand: '', model: '', cat: '', holder: '' }
 
 export default function AssetListPage() {
   const { role } = useAuth()
-  const canEdit = role === 'admin'
+  const canEdit = canEditRole(role)
+  const canRemove = canDelete(role) // ลบได้เฉพาะผู้ดูแลระบบ
   const toast = useToast()
 
   const [q, setQ] = useState('')
-  const [status, setStatus] = useState('')
-  const [room, setRoom] = useState('')
-  const [budget, setBudget] = useState('')
+  const [filters, setFilters] = useState(emptyFilters)
+  const setFilter = (k, v) => setFilters((f) => ({ ...f, [k]: v }))
+  const activeFilters = Object.values(filters).filter(Boolean).length
+  const [sort, setSort] = useState({ key: '', dir: 'asc' })
+  // กดหัวคอลัมน์: น้อยไปมาก -> มากไปน้อย -> ค่าเริ่มต้น
+  const toggleSort = (key) =>
+    setSort((s) => (s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : { key: '', dir: 'asc' }))
+  const [options, setOptions] = useState({})
+  const loadOptions = () => getAssetOptions().then(setOptions).catch(() => {})
+  useEffect(() => {
+    loadOptions()
+  }, [])
   const [selected, setSelected] = useState([]) // id ที่ติ๊กไว้ (พิมพ์ QR / ลบ) — จำข้ามหน้าได้
   const [allMatching, setAllMatching] = useState(false) // เลือก "ทุกรายการตามตัวกรอง" (ไม่ใช่แค่หน้านี้)
   const toggleSel = (id) => {
@@ -50,7 +71,7 @@ export default function AssetListPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState(emptyAssetForm)
   const [saving, setSaving] = useState(false)
 
   const [users, setUsers] = useState([])
@@ -58,64 +79,45 @@ export default function AssetListPage() {
     if (canEdit) getUsers({ active: 1 }).then((d) => setUsers(d.items || [])).catch(() => {})
   }, [canEdit])
 
-  useEffect(() => setAllMatching(false), [debouncedQ, status, room, budget])
+  useEffect(() => setAllMatching(false), [debouncedQ, filters])
 
   const [toDelete, setToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [refreshing, setRefreshing] = useState(false)
   const load = async () => {
-    setState('loading')
+    // โหลดครั้งแรกแสดงหน้ารอ ครั้งต่อไปคงตารางไว้ (ตัวกรองหัวคอลัมน์จะได้ไม่หาย)
+    if (state !== 'ready') setState('loading')
+    setRefreshing(true)
     try {
-      const data = await getAssets({
-        q: debouncedQ || undefined,
-        status: status || undefined,
-        room: room || undefined,
-        budget: budget || undefined,
-        page,
-        perPage: PER_PAGE,
-      })
+      const data = await getAssets({ ...filterQuery(), sort: sort.key || undefined, dir: sort.key ? sort.dir : undefined, page, perPage: PER_PAGE })
       setResult(data)
       setState('ready')
     } catch {
       setState('error')
+    } finally {
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ, status, room, budget, page])
+  }, [debouncedQ, filters, sort, page])
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedQ, status, room, budget])
-
-  // มี ตึก/ชั้น/ห้อง อย่างน้อยหนึ่งช่อง -> "ระบุสถานที่ใช้งาน" สร้างจาก 3 ช่องนี้เสมอ (สองค่าไม่มีทางไม่ตรงกัน)
-  // ไม่มีเลยสักช่อง -> พิมพ์เองได้ เช่น "ห้องพักอาจารย์"
-  const hasParts = (f) => !!(f.building || f.floor || f.roomNo)
-  const setLocPart = (key, value) =>
-    setForm((f) => {
-      const next = { ...f, [key]: value }
-      return hasParts(next) ? { ...next, room: composeLocation(next) } : next
-    })
+  }, [debouncedQ, filters, sort])
 
   const openCreate = () => {
     setEditing(null)
-    setForm(emptyForm)
+    setForm(emptyAssetForm)
     setFormOpen(true)
   }
 
   const openEdit = (asset) => {
     setEditing(asset)
-    // เอาเฉพาะฟิลด์ในฟอร์ม (ไม่ส่ง location/codeParts เดิมกลับไปทับค่าที่แก้)
-    const f = {
-      ...Object.fromEntries(Object.keys(emptyForm).map((k) => [k, asset[k] ?? ''])),
-      building: asset.location?.building || '',
-      floor: asset.location?.floor || '',
-      roomNo: asset.location?.room || '',
-    }
-    // ข้อมูลเก่าที่สองช่องไม่ตรงกัน จะถูกปรับให้ตรงเมื่อกดบันทึก
-    setForm(hasParts(f) ? { ...f, room: composeLocation(f) } : f)
+    setForm(assetToForm(asset))
     setFormOpen(true)
   }
 
@@ -123,9 +125,7 @@ export default function AssetListPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      // ส่งสถานที่แยกช่องเหมือนไฟล์ Excel — ถ้าเว้น "ระบุสถานที่ใช้งาน" ระบบประกอบจาก ตึก/ชั้น/ห้อง ให้
-      const { building, floor, roomNo, room, ...rest } = form
-      const payload = { ...rest, location: { building, floor, room: roomNo, label: room } }
+      const payload = formToPayload(form)
       if (editing) {
         await updateAsset(editing.id, payload)
         toast.success('บันทึกการแก้ไขเรียบร้อยแล้ว')
@@ -135,6 +135,7 @@ export default function AssetListPage() {
       }
       setFormOpen(false)
       load()
+      loadOptions()
     } catch (err) {
       toast.error(err.response?.data?.message || 'บันทึกข้อมูลไม่สำเร็จ')
     } finally {
@@ -156,12 +157,12 @@ export default function AssetListPage() {
     }
   }
 
-  const filterQuery = () => ({
-    q: debouncedQ || undefined,
-    status: status || undefined,
-    room: room || undefined,
-    budget: budget || undefined,
-  })
+  function filterQuery() {
+    return {
+      q: debouncedQ || undefined,
+      ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)),
+    }
+  }
   const selCount = allMatching ? result.total || 0 : selected.length
 
   const confirmBulkDelete = async () => {
@@ -183,7 +184,6 @@ export default function AssetListPage() {
   }
 
   const pages = Math.max(1, Math.ceil((result.total || 0) / PER_PAGE))
-  const rooms = result.rooms || []
   const budgets = result.budgets || []
 
   return (
@@ -197,9 +197,11 @@ export default function AssetListPage() {
                 <Btn>พิมพ์ QR ที่เลือก ({nf(selected.length)})</Btn>
               </Link>
             )}
-            <Btn variant="ghost" onClick={() => setBulkOpen(true)}>
-              <span className="text-bad">ลบที่เลือก ({nf(selCount)})</span>
-            </Btn>
+            {canRemove && (
+              <Btn variant="ghost" onClick={() => setBulkOpen(true)}>
+                <span className="text-bad">ลบที่เลือก ({nf(selCount)})</span>
+              </Btn>
+            )}
             <button onClick={clearSel} className="text-[12px] text-muted hover:text-ink px-1">ล้างที่เลือก</button>
           </>
         )}
@@ -232,24 +234,17 @@ export default function AssetListPage() {
           <span className="flex items-center gap-1.5 text-[12px] text-muted">
             <Icon name="filter" /> กรอง
           </span>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
-            <option value="">ทุกสถานะ</option>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.key} value={s.key}>{s.label}</option>
-            ))}
-          </select>
-          <select value={room} onChange={(e) => setRoom(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
-            <option value="">ทุกห้อง</option>
-            {rooms.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          <select value={budget} onChange={(e) => setBudget(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
-            <option value="">ทุกงบประมาณ</option>
-            {budgets.map((b) => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
+          <Combobox compact className="w-44" value={filters.budget} onChange={(v) => setFilter('budget', v)} options={budgets} emptyLabel="ทุกงบประมาณ" />
+          <Combobox compact className="w-32" value={filters.year} onChange={(v) => setFilter('year', v)} options={(result.years || []).map((y) => ({ value: String(y), label: `ปี ${y}` }))} emptyLabel="ทุกปีงบ" />
+          {(activeFilters > 0 || sort.key) && (
+            <button
+              onClick={() => { setFilters(emptyFilters); setSort({ key: '', dir: 'asc' }) }}
+              className="text-[12px] text-brand hover:underline px-1"
+            >
+              ล้างตัวกรอง{activeFilters ? ` (${activeFilters})` : ''}
+            </button>
+          )}
+          {refreshing && <Spinner className="w-4 h-4 text-faint" />}
 
           <span className="text-[12px] text-faint ml-auto">พบ {nf(result.total || 0)} รายการ</span>
         </div>
@@ -280,7 +275,7 @@ export default function AssetListPage() {
           <>
             <div className="scroll-x">
               {/* คอลัมน์เรียงตามไฟล์ Excel ของคณะ + ผู้ถือครอง */}
-              <table className="w-full min-w-[1150px] text-[13px]">
+              <table className="w-full min-w-[1350px] text-[13px]">
                 <thead>
                   <tr className="text-[12px] text-muted border-b border-line">
                     {canEdit && (
@@ -301,9 +296,41 @@ export default function AssetListPage() {
                         />
                       </th>
                     )}
-                    {['ลำดับ', 'ตึก/อาคาร', 'ชั้น', 'ห้อง', 'ระบุ สถานที่ใช้งาน', 'สภาพ', 'รหัสสินทรัพย์อ้างอิง', 'ชื่อสินทรัพย์', 'ยี่ห้อ', 'ผู้ถือครอง', ''].map((h) => (
-                      <th key={h} className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">{h}</th>
+                    <th className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">ลำดับ</th>
+                    {COLUMNS.map((c) => (
+                      <th key={c.sort} className="text-left font-medium py-2.5 pr-3 whitespace-nowrap">
+                        <button
+                          onClick={() => toggleSort(c.sort)}
+                          className={`inline-flex items-center gap-1 rounded-md px-1 -mx-1 hover:text-ink hover:bg-surface2 ${sort.key === c.sort ? 'text-ink' : ''}`}
+                          title="เรียงลำดับ"
+                        >
+                          {c.label}
+                          <span className="text-[10px] w-2">{sort.key === c.sort ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
+                        </button>
+                      </th>
                     ))}
+                    <th />
+                  </tr>
+                  {/* กรองรายคอลัมน์ — เลือกจากค่าที่มีอยู่ในระบบ */}
+                  <tr className="border-b border-line">
+                    {canEdit && <th />}
+                    <th />
+                    {COLUMNS.map((c) => (
+                      <th key={c.sort} className="py-1.5 pr-2 font-normal">
+                        {c.filter === 'status' ? (
+                          <Combobox
+                            compact
+                            value={filters.status}
+                            onChange={(v) => setFilter('status', v)}
+                            options={STATUS_OPTIONS.map((s) => ({ value: s.key, label: s.label }))}
+                            emptyLabel="ทั้งหมด"
+                          />
+                        ) : c.filter ? (
+                          <Combobox compact value={filters[c.filter]} onChange={(v) => setFilter(c.filter, v)} options={options[c.opt] || []} emptyLabel="ทั้งหมด" />
+                        ) : null}
+                      </th>
+                    ))}
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -325,23 +352,26 @@ export default function AssetListPage() {
                       </td>
                       <td className="py-3 pr-3">
                         <p className="font-medium">{a.name}</p>
-                        {a.model && <p className="text-[11px] text-faint">{a.model}</p>}
                       </td>
                       <td className="py-3 pr-3 text-muted">{a.brand || '—'}</td>
+                      <td className="py-3 pr-3 text-muted">{a.model || '—'}</td>
+                      <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.cat || '—'}</td>
                       <td className="py-3 pr-3 text-muted whitespace-nowrap">{a.owner || '—'}</td>
                       <td className="py-3 pr-1">
                         <div className="flex items-center gap-1 justify-end text-faint">
                           <Link to={`/assets/${a.id}`} className="p-1.5 rounded-lg hover:text-brand hover:bg-brandsoft" title="ดูรายละเอียด">
-                            <Icon name="history" />
+                            <Icon name="eye" />
                           </Link>
                           {canEdit && (
                             <>
                               <button onClick={() => openEdit(a)} className="p-1.5 rounded-lg hover:text-brand hover:bg-brandsoft" title="แก้ไข">
                                 <Icon name="edit" />
                               </button>
-                              <button onClick={() => setToDelete(a)} className="p-1.5 rounded-lg hover:text-bad hover:bg-badsoft" title="ลบ">
-                                <Icon name="trash" />
-                              </button>
+                              {canRemove && (
+                                <button onClick={() => setToDelete(a)} className="p-1.5 rounded-lg hover:text-bad hover:bg-badsoft" title="ลบ">
+                                  <Icon name="trash" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -383,44 +413,7 @@ export default function AssetListPage() {
           </>
         }
       >
-        <form id="asset-form" onSubmit={submitForm} className="grid grid-cols-2 gap-3">
-          <Field label="เลขครุภัณฑ์" placeholder="เช่น วทท-8พ-69-1/70" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-          <Field label="ชื่อครุภัณฑ์" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Field label="รุ่น" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-          <Field label="ยี่ห้อ" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-          <Field label="ประเภท" value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })} />
-          <Field label="ตึก/อาคาร" placeholder="เช่น บร.2" value={form.building} onChange={(e) => setLocPart('building', e.target.value)} />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="ชั้น" value={form.floor} onChange={(e) => setLocPart('floor', e.target.value)} />
-            <Field label="ห้อง" value={form.roomNo} onChange={(e) => setLocPart('roomNo', e.target.value)} />
-          </div>
-          <Field
-            label="ระบุ สถานที่ใช้งาน"
-            className="col-span-2"
-            value={form.room}
-            readOnly={hasParts(form)}
-            placeholder="เช่น ห้องพักอาจารย์"
-            onChange={(e) => setForm({ ...form, room: e.target.value })}
-          />
-          <Field label="ผู้ถือครอง" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
-          <SelectField
-            label="บัญชีผู้ถือครอง (ถ้ามี)"
-            value={form.holderUser || ''}
-            onChange={(e) => {
-              const u = users.find((x) => x.id === e.target.value)
-              setForm({ ...form, holderUser: e.target.value, owner: form.owner || u?.name || '' })
-            }}
-            options={[{ value: '', label: '— ไม่ผูกบัญชี —' }, ...users.map((u) => ({ value: u.id, label: u.name || u.username }))]}
-          />
-          <Field label="งบประมาณ" value={form.budget} placeholder="เว้นว่าง = ดูจากเลขครุภัณฑ์" onChange={(e) => setForm({ ...form, budget: e.target.value })} />
-          <Field label="ราคา (บาท)" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-          <SelectField
-            label="สถานะ"
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-            options={STATUS_OPTIONS.map((s) => ({ value: s.key, label: s.label }))}
-          />
-        </form>
+        <AssetForm id="asset-form" form={form} setForm={setForm} onSubmit={submitForm} options={options} users={users} />
       </Modal>
 
       <ConfirmDialog

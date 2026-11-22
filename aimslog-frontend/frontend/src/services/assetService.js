@@ -8,6 +8,11 @@ export function getAssets(params = {}) {
   return api.get('/assets', { params }).then((res) => res.data)
 }
 
+// ค่าที่มีอยู่แล้วของแต่ละช่อง (ตึก ชั้น ห้อง ประเภท ยี่ห้อ รุ่น ผู้ถือครอง งบ) สำหรับ dropdown ที่พิมพ์ค้นหาได้
+export function getAssetOptions() {
+  return api.get('/assets/options').then((res) => res.data)
+}
+
 export function getAsset(id) {
   return api.get(`/assets/${id}`).then((res) => res.data)
 }
@@ -39,17 +44,26 @@ export function getBudgets() {
 }
 
 // Sprint 3: นำเข้าข้อมูลจาก Excel (2 ขั้น: ตรวจก่อน แล้วค่อยบันทึก)
-export function previewImport(file) {
+// sheet / mapping = ชีตและการจับคู่คอลัมน์ที่ผู้ใช้เลือก ({ field: 'ชื่อหัวคอลัมน์' | '' }) — ไม่ส่ง = ให้ระบบเดา
+const appendSheetMapping = (fd, { sheets, sheet, mapping } = {}) => {
+  if (sheets?.length) fd.append('sheets', JSON.stringify(sheets))
+  if (sheet) fd.append('sheet', sheet)
+  if (mapping) fd.append('mapping', JSON.stringify(mapping))
+}
+
+export function previewImport(file, opts) {
   const fd = new FormData()
   fd.append('file', file)
+  appendSheetMapping(fd, opts)
   return api.post('/assets/import/preview', fd).then((res) => res.data)
 }
 
 // นำเข้าแล้วข้อมูลในระบบตรงกับไฟล์ (ค่าเดิมเก็บในประวัติ)
 // updates (ไม่บังคับ) = { assetId: ['status', ...] } ถ้าต้องการอัปเดตเฉพาะบางช่อง
-export function commitImport(file, { statusMapping = {}, budgetMapping = {}, updates } = {}) {
+export function commitImport(file, { statusMapping = {}, budgetMapping = {}, updates, sheets, mapping } = {}) {
   const fd = new FormData()
   fd.append('file', file)
+  appendSheetMapping(fd, { sheets, mapping })
   fd.append('statusMapping', JSON.stringify(statusMapping))
   fd.append('budgetMapping', JSON.stringify(budgetMapping))
   if (updates) fd.append('updates', JSON.stringify(updates))

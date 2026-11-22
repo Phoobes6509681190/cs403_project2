@@ -20,6 +20,8 @@ const assetSchema = new mongoose.Schema(
     // ชื่องบ เช่น "งบพิเศษ" — ได้จากตาราง budgets ตามตัวย่อในเลขครุภัณฑ์
     // ข้อมูลเก่าเก็บชื่องบเดิมไว้ตามจริง ไม่แปลงเป็นงบใหม่
     budget: { type: String, trim: true, default: "ไม่ระบุ", index: true },
+    // แหล่งเงินตามไฟล์คณะ เช่น "งบ มธ." (ละเอียดน้อยกว่า budget) — ใช้แทน budget เมื่อเลขครุภัณฑ์ไม่มีตัวย่องบ
+    fundSource: { type: String, trim: true },
 
     name: { type: String, required: true, trim: true },
     model: { type: String, trim: true },
@@ -38,6 +40,8 @@ const assetSchema = new mongoose.Schema(
     holderName: { type: String, trim: true },
     // ถ้าผู้ถือครองมีบัญชี ผูกไว้เพื่อให้ login มาตรวจของตัวเองได้ (Sprint ตรวจนับ)
     holderUser: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // หมายเหตุสภาพ เช่น ใช้งานไม่ได้เพราะอะไร / สูญหายเมื่อไร (ไฟล์คณะมีคอลัมน์ F, G สำหรับเรื่องนี้)
+    note: { type: String, trim: true },
 
     price: { type: Number, min: 0 },
     acquiredAt: { type: Date },
@@ -50,7 +54,8 @@ const assetSchema = new mongoose.Schema(
     // ค่าดิบจาก Excel ทั้งแถว — "ข้อมูลเก่าอย่าลบทิ้ง"
     legacy: { type: mongoose.Schema.Types.Mixed },
 
-    isDeleted: { type: Boolean, default: false, index: true }
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" } // ถังขยะแสดงเฉพาะของที่ตัวเองลบ
   },
   { timestamps: true }
 );

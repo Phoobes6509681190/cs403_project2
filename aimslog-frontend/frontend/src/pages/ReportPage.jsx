@@ -3,7 +3,7 @@ import Icon from '../components/icon'
 import { Card, Btn, StatCard, RoomBars, Donut, LoadingState, ErrorState, useToast } from '../components/UI'
 import { getReportSummary, getReportDetail } from '../services/reportService'
 import { getBudgets } from '../services/assetService'
-import { STATUS } from '../data/statusConfig'
+import { STATUS, DATA_ISSUE } from '../data/statusConfig'
 import { exportReportExcel, SUMMARY_COLUMNS } from '../utils/reportExport'
 import { nf, pct, formatDateTH } from '../utils/format'
 
@@ -15,13 +15,16 @@ export default function ReportPage() {
   const [detail, setDetail] = useState({ items: [] })
   const [budgets, setBudgets] = useState([])
   const [budget, setBudget] = useState('')
+  const [year, setYear] = useState('')
+  const [room, setRoom] = useState('')
+  const [status, setStatus] = useState('') // กรองเฉพาะตารางรายละเอียด
   const [state, setState] = useState('loading')
 
   const load = async () => {
     setState('loading')
     try {
-      const params = { budget: budget || undefined }
-      const [s, d] = await Promise.all([getReportSummary(params), getReportDetail(params)])
+      const params = { budget: budget || undefined, year: year || undefined, room: room || undefined }
+      const [s, d] = await Promise.all([getReportSummary(params), getReportDetail({ ...params, status: status || undefined })])
       setSummary(s)
       setDetail(d)
       setState('ready')
@@ -37,14 +40,17 @@ export default function ReportPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budget])
+  }, [budget, year, room, status])
 
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดรายงานไม่สำเร็จ" />
 
   const { total, byStatus, byRoom, groups, totals, inspection } = summary
-  const year = inspection?.budgetYear
-  const title = `รายงานผลการตรวจสอบพัสดุประจำปี สาขาวิทยาการคอมพิวเตอร์${year ? ` ปีงบประมาณ ${year}` : ''}${budget ? ` (${budget})` : ''}`
+  // ปัญหาข้อมูล (ข้อมูลซ้ำ ฯลฯ) ไว้ท้ายตาราง เลขลำดับตอนพิมพ์จะได้ต่อเนื่อง
+  const detailRows = [...detail.items.filter((r) => !DATA_ISSUE.includes(r.status)), ...detail.items.filter((r) => DATA_ISSUE.includes(r.status))]
+  const issueCounts = DATA_ISSUE.map((k) => [k, byStatus[k] || 0]).filter(([, n]) => n > 0)
+  const filterNote = [budget, year && `ครุภัณฑ์ปี ${year}`, room].filter(Boolean).join(' · ')
+  const title = `รายงานผลการตรวจสอบพัสดุประจำปี สาขาวิทยาการคอมพิวเตอร์${inspection?.budgetYear ? ` ปีงบประมาณ ${inspection.budgetYear}` : ''}${filterNote ? ` (${filterNote})` : ''}`
 
   const handleExcel = () => {
     try {
@@ -72,6 +78,18 @@ export default function ReportPage() {
             <option key={b.abbr} value={b.name}>{b.name}{b.active ? '' : ' (งบเดิม)'}</option>
           ))}
         </select>
+        <select value={year} onChange={(e) => setYear(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
+          <option value="">ทุกปีงบ</option>
+          {(summary.options?.years || []).map((y) => (
+            <option key={y} value={y}>ปี {y}</option>
+          ))}
+        </select>
+        <select value={room} onChange={(e) => setRoom(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px] max-w-[200px]">
+          <option value="">ทุกห้อง</option>
+          {(summary.options?.rooms || []).map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
         <Btn onClick={handleExcel}>
           <Icon name="down" /> ส่งออก Excel
         </Btn>
@@ -87,12 +105,21 @@ export default function ReportPage() {
       </div>
 
       <div className="grid gap-4 grid-cols-2 xl:grid-cols-5 print:hidden">
-        <StatCard label="ทั้งหมด (ไม่รวมตัดโอน)" value={total} sub={`ตัดโอนแล้ว ${nf(summary.transferred)} รายการ`} />
+        <StatCard label="ทั้งหมด (ไม่รวมจำหน่ายแล้ว)" value={total} sub={`จำหน่ายแล้ว ${nf(summary.transferred)} รายการ`} />
         <StatCard label="ปกติ" value={byStatus.ok || 0} sub={`${pct(byStatus.ok, total)}%`} color="var(--ok)" />
         <StatCard label="ชำรุด" value={brokenAll} sub={`ซ่อมได้ ${nf(byStatus.broken)} · ซ่อมไม่ได้ ${nf(byStatus.disposal)}`} color="var(--bad)" />
-        <StatCard label="หมดความจำเป็น" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}%`} color="var(--warn)" />
-        <StatCard label="ไม่พบพัสดุ" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}%`} color="var(--gone)" />
+        <StatCard label="เสื่อมสภาพ" value={byStatus.unneeded || 0} sub={`${pct(byStatus.unneeded, total)}%`} color="var(--warn)" />
+        <StatCard label="หาไม่พบ" value={byStatus.missing || 0} sub={`${pct(byStatus.missing, total)}%`} color="var(--gone)" />
       </div>
+
+      {issueCounts.length > 0 && (
+        <Card className="p-4 text-[13px] print:hidden flex flex-wrap gap-x-4 gap-y-1">
+          <span className="font-medium">ข้อมูลต้องตรวจสอบ (ไม่นับรวม ไม่ออกในรายงานที่พิมพ์):</span>
+          {issueCounts.map(([k, n]) => (
+            <span key={k} className="text-muted">{STATUS[k].label} <b className="text-ink tabular-nums">{nf(n)}</b></span>
+          ))}
+        </Card>
+      )}
 
       {inspection && (
         <Card className="p-4 text-[13px] print:hidden">
@@ -110,7 +137,7 @@ export default function ReportPage() {
               <tr className="text-[12px] text-muted border-b border-line print:text-black">
                 <th className="text-left font-medium py-2 pr-3">งบประมาณ</th>
                 {SUMMARY_COLUMNS.map((c) => (
-                  <th key={c.key} className={`text-right font-medium py-2 px-2 ${c.key === 'transferred' ? 'text-faint' : ''}`}>{c.label}</th>
+                  <th key={c.key} className={`text-right font-medium py-2 px-2 ${(c.key === 'transferred' || c.key === 'dataIssue') ? 'text-faint' : ''} ${c.screenOnly ? 'print:hidden' : ''}`}>{c.label}</th>
                 ))}
               </tr>
             </thead>
@@ -121,7 +148,7 @@ export default function ReportPage() {
                     {g.budget} {!g.active && <span className="text-[11px] text-faint">(งบเดิม)</span>}
                   </td>
                   {SUMMARY_COLUMNS.map((c) => (
-                    <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${c.key === 'total' ? 'font-semibold' : ''} ${c.key === 'transferred' ? 'text-faint' : ''}`}>
+                    <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${c.key === 'total' ? 'font-semibold' : ''} ${(c.key === 'transferred' || c.key === 'dataIssue') ? 'text-faint' : ''} ${c.screenOnly ? 'print:hidden' : ''}`}>
                       {nf(g[c.key])}
                     </td>
                   ))}
@@ -130,7 +157,7 @@ export default function ReportPage() {
               <tr className="font-semibold">
                 <td className="py-2 pr-3">รวมทั้งหมด</td>
                 {SUMMARY_COLUMNS.map((c) => (
-                  <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${c.key === 'transferred' ? 'text-faint' : ''}`}>{nf(totals[c.key])}</td>
+                  <td key={c.key} className={`py-2 px-2 text-right tabular-nums ${(c.key === 'transferred' || c.key === 'dataIssue') ? 'text-faint' : ''} ${c.screenOnly ? 'print:hidden' : ''}`}>{nf(totals[c.key])}</td>
                 ))}
               </tr>
             </tbody>
@@ -163,7 +190,15 @@ export default function ReportPage() {
       </div>
 
       <Card className="p-4 print:shadow-none print:border-0 print:p-0 print:break-before-page">
-        <h3 className="font-semibold mb-3">ตารางรายละเอียดทั้งหมด ({nf(detail.items.length)} รายการ)</h3>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <h3 className="font-semibold mr-auto">ตารางรายละเอียดทั้งหมด ({nf(detail.items.length)} รายการ)</h3>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-1.5 text-[13px] print:hidden">
+            <option value="">ทุกสถานะ</option>
+            {Object.entries(STATUS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+        </div>
         <div className="scroll-x">
           <table className="w-full min-w-[900px] text-[13px] print:text-[10px] print:min-w-0">
             <thead>
@@ -174,10 +209,13 @@ export default function ReportPage() {
               </tr>
             </thead>
             <tbody>
-              {detail.items.map((r, i) => (
+              {detailRows.map((r, i) => (
+                // สถานะปัญหาข้อมูลแสดงบนจอ (ท้ายตาราง) แต่ไม่ออกตอนพิมพ์
                 <tr
                   key={r.id}
-                  className={`border-b border-line last:border-0 break-inside-avoid ${i >= DETAIL_SCREEN_LIMIT ? 'hidden print:table-row' : ''}`}
+                  className={`border-b border-line last:border-0 break-inside-avoid ${
+                    DATA_ISSUE.includes(r.status) ? 'print:hidden text-muted' : i >= DETAIL_SCREEN_LIMIT ? 'hidden print:table-row' : ''
+                  } ${DATA_ISSUE.includes(r.status) && i >= DETAIL_SCREEN_LIMIT ? 'hidden' : ''}`}
                 >
                   <td className="py-2 pr-3 text-faint tabular-nums">{i + 1}</td>
                   <td className="py-2 pr-3 font-mono text-[12px] tabular-nums whitespace-nowrap">{r.code}</td>
