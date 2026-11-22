@@ -282,7 +282,7 @@ exports.setCommittee = async (req, res) => {
   }
 };
 
-// POST /api/inspections/:id/bulk body: { room, status }
+// POST /api/inspections/:id/bulk body: { room | assetIds, status, note }
 // บันทึกผลเดียวกันให้ทุกชิ้นที่ยังไม่ตรวจในห้อง เช่น "ปกติ" หลังกดชิ้นที่ผิดปกติไปแล้ว
 // หรือ "ไม่พบพัสดุ" เมื่อห้องถูกรื้อ/ย้ายออกทั้งห้อง
 // เปลี่ยนเฉพาะชิ้นที่ยังไม่ได้ตรวจ ชิ้นที่ตรวจแล้วไม่ถูกทับ
@@ -292,13 +292,19 @@ exports.bulkRoom = async (req, res) => {
     if (!inspection) return;
     if (inspection.status !== "open") return fail(res, 409, "รอบตรวจนับนี้ปิดแล้ว");
     if (!isCommittee(inspection, req.user)) return fail(res, 403, "เฉพาะกรรมการที่ได้รับแต่งตั้งในรอบนี้");
-    const { room, status = "ok" } = req.body || {};
-    if (typeof room !== "string") return fail(res, 400, "ระบุห้อง");
+    // เลือกได้ 2 แบบ: ทั้งห้อง (room) หรือติ๊กเลือกหลายชิ้น (assetIds)
+    const { room, assetIds, status = "ok" } = req.body || {};
+    const byIds = Array.isArray(assetIds);
+    if (!byIds && typeof room !== "string") return fail(res, 400, "ระบุห้อง หรือเลือกรายการ");
+    const ids = byIds ? assetIds.filter(isId).slice(0, 2000) : [];
+    if (byIds && !ids.length) return fail(res, 400, "ยังไม่ได้เลือกรายการ");
     if (!INSPECT_RESULTS.includes(status)) return fail(res, 400, "ผลตรวจไม่ถูกต้อง");
     const note = String(req.body?.note || "").trim().slice(0, 500);
     if (NOTE_REQUIRED.includes(status) && !note) return fail(res, 400, "ผลนี้ต้องระบุหมายเหตุ");
 
-    const items = await InspectionItem.find({ inspection: inspection._id, "snapshot.room": room, result: null });
+    const items = await InspectionItem.find({
+      inspection: inspection._id, result: null, ...(byIds ? { asset: { $in: ids } } : { "snapshot.room": room })
+    });
     if (!items.length) return res.json({ success: true, updated: 0 });
 
     const now = new Date();
@@ -306,9 +312,9 @@ exports.bulkRoom = async (req, res) => {
     await InspectionItem.updateMany({ _id: { $in: items.map((i) => i._id) } }, { result: status, ...who, ...(note && { note }) });
 
     // อัปเดตสถานะครุภัณฑ์ + บันทึกประวัติเฉพาะชิ้นที่สถานะเปลี่ยน
-    const assetIds = items.map((i) => i.asset);
-    const changed = await Asset.find({ _id: { $in: assetIds }, status: { $ne: status } }, { status: 1 }).lean();
-    await Asset.updateMany({ _id: { $in: assetIds } }, { status, lastInspectedAt: now });
+    const targetIds = items.map((i) => i.asset);
+    const changed = await Asset.find({ _id: { $in: targetIds }, status: { $ne: status } }, { status: 1 }).lean();
+    await Asset.updateMany({ _id: { $in: targetIds } }, { status, lastInspectedAt: now });
     if (changed.length) {
       await AssetHistory.insertMany(changed.map((a) => ({
         asset: a._id, action: "inspect",
