@@ -42,6 +42,7 @@ export function listInspections() {
 }
 
 // บันทึกผลเดียวกันให้ทุกชิ้นที่ยังไม่ตรวจในห้อง (เฉพาะกรรมการ)
-export function bulkMarkRoom(inspectionId, room, status, note) {
-  return api.post(`/inspections/${inspectionId}/bulk`, { room, status, note }).then((res) => res.data)
+// target = { room } (ทั้งห้อง) หรือ { assetIds: [...] } (ติ๊กเลือกหลายชิ้น)
+export function bulkMarkRoom(inspectionId, target, status, note) {
+  return api.post(`/inspections/${inspectionId}/bulk`, { ...target, status, note }).then((res) => res.data)
 }

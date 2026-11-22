@@ -33,6 +33,7 @@ export default function InspectionPage() {
   const [bulkStatus, setBulkStatus] = useState('ok')
   const [bulking, setBulking] = useState(false)
   const [bulkNote, setBulkNote] = useState('')
+  const [selected, setSelected] = useState(() => new Set()) // ติ๊กเลือกหลายชิ้น (assetId)
   const [view, setView] = useState('check') // check = เดินตรวจ, table = ตารางผลรอบนี้
   const debouncedQ = useDebounce(q, 200)
 
@@ -96,15 +97,20 @@ export default function InspectionPage() {
   const items = useMemo(() => (room ? allItems.filter((i) => (i.room || '') === room) : allItems), [allItems, room])
   const roomPending = items.filter((i) => !i.checked).length
 
+  // บันทึกหลายชิ้นพร้อมกัน: ชิ้นที่ติ๊กเลือก (ถ้ามี) หรือทั้งห้องที่เลือกอยู่
+  const bySelection = selected.size > 0
+  const bulkCount = bySelection ? selected.size : roomPending
   const handleBulk = async () => {
     setBulking(true)
     try {
-      const { updated } = await bulkMarkRoom(inspection.id, room, bulkStatus, bulkNote.trim())
-      toast.success(`บันทึก "${STATUS[bulkStatus].label}" ${nf(updated)} รายการในห้อง ${room || 'ไม่ระบุ'}`)
+      const { updated } = await bulkMarkRoom(inspection.id, bySelection ? { assetIds: [...selected] } : { room }, bulkStatus, bulkNote.trim())
+      toast.success(`บันทึก "${STATUS[bulkStatus].label}" ${nf(updated)} รายการ${bySelection ? '' : `ในห้อง ${room || 'ไม่ระบุ'}`}`)
       setBulkOpen(false)
+      setSelected(new Set())
+      setBulkNote('')
       load()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'บันทึกทั้งห้องไม่สำเร็จ')
+      toast.error(err.response?.data?.message || 'บันทึกหลายรายการไม่สำเร็จ')
     } finally {
       setBulking(false)
     }
@@ -116,6 +122,17 @@ export default function InspectionPage() {
       .filter((i) => (tab === 'pending' ? !i.checked : i.checked))
       .filter((i) => !needle || [i.code, i.name, i.room, i.owner].some((v) => v?.toLowerCase().includes(needle)))
   }, [items, tab, debouncedQ])
+
+  // ติ๊กเลือกได้เฉพาะกรรมการ ในแท็บ "ยังไม่ตรวจ" ของรอบที่เปิดอยู่
+  const canBulk = inspection?.status === 'open' && inspection?.isCommittee && tab === 'pending'
+  const allShownSelected = filtered.length > 0 && filtered.every((i) => selected.has(i.assetId))
+  const toggleSelect = (assetId) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(assetId)) next.delete(assetId)
+      else next.add(assetId)
+      return next
+    })
 
   if (state === 'loading') return <LoadingState />
   if (state === 'error') return <ErrorState onRetry={load} message="โหลดข้อมูลรอบตรวจนับไม่สำเร็จ" />
@@ -164,11 +181,17 @@ export default function InspectionPage() {
               กรรมการ: {inspection.committee.map((c) => c.name).join(', ') || '—'}
             </p>
           </div>
-          {inspection.canClose && (
-            <Btn variant="danger" onClick={() => setConfirmClose(true)}>
-              {inspection.closeNeedsReason ? 'ปิดรอบแทน' : 'ปิดรอบ'}
-            </Btn>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {/* แต่งตั้งกรรมการอยู่ในหน้าตรวจนับนี้ (ไม่มีเมนูแยก) — ผู้ดูแลระบบเท่านั้น */}
+            {isOpen && role === 'admin' && (
+              <Link to="/inspection/committee"><Btn>แก้ไขกรรมการ</Btn></Link>
+            )}
+            {inspection.canClose && (
+              <Btn variant="danger" onClick={() => setConfirmClose(true)}>
+                {inspection.closeNeedsReason ? 'ปิดรอบแทน' : 'ปิดรอบ'}
+              </Btn>
+            )}
+          </div>
         </div>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />
@@ -228,16 +251,35 @@ export default function InspectionPage() {
           />
         </div>
 
-        {room && isOpen && inspection.isCommittee && roomPending > 0 && (
-          <div className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-3 flex flex-wrap items-center gap-3">
+        {canBulk && filtered.length > 0 && (
+          <label className="mb-2 flex items-center gap-2 text-[12px] text-muted cursor-pointer w-fit">
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={allShownSelected}
+              onChange={() => setSelected(allShownSelected ? new Set() : new Set(filtered.map((i) => i.assetId)))}
+            />
+            เลือกทั้งหมด {nf(filtered.length)} รายการที่แสดง
+          </label>
+        )}
+
+        {canBulk && (bySelection || (room && roomPending > 0)) && (
+          <div className="sticky top-2 z-10 mb-3 rounded-xl border border-brand/40 bg-surface2 px-4 py-3 flex flex-wrap items-center gap-3 shadow-card">
             <p className="text-[12px] text-muted flex-1 min-w-[220px]">
-              <b className="text-ink">ตรวจทั้งห้อง</b> · เหลือ {nf(roomPending)} ชิ้น
+              {bySelection ? (
+                <>
+                  <b className="text-ink">เลือกแล้ว {nf(selected.size)} ชิ้น</b>
+                  <button onClick={() => setSelected(new Set())} className="ml-2 text-brand hover:underline">ล้างที่เลือก</button>
+                </>
+              ) : (
+                <><b className="text-ink">ตรวจทั้งห้อง</b> · เหลือ {nf(roomPending)} ชิ้น (หรือติ๊กเลือกเฉพาะบางชิ้น)</>
+              )}
             </p>
             <select
               value={bulkStatus}
               onChange={(e) => setBulkStatus(e.target.value)}
               className="rounded-lg border border-line bg-surface px-3 py-2 text-[13px]"
-              aria-label="ผลที่จะบันทึกให้ทั้งห้อง"
+              aria-label="ผลที่จะบันทึกให้หลายรายการ"
             >
               {INSPECT_ACTIONS.map((a) => (
                 <option key={a.key} value={a.key}>{STATUS[a.key].label}</option>
@@ -256,14 +298,23 @@ export default function InspectionPage() {
               disabled={NOTE_REQUIRED.includes(bulkStatus) && !bulkNote.trim()}
               onClick={() => setBulkOpen(true)}
             >
-              บันทึก {nf(roomPending)} ชิ้น
+              บันทึก {nf(bulkCount)} ชิ้น
             </Btn>
           </div>
         )}
         <ul className="divide-y divide-line">
           {filtered.slice(0, MAX_SHOW).map((item) => (
-            <li key={item.assetId} className="py-3 space-y-2">
+            <li key={item.assetId} className={`py-3 space-y-2 ${selected.has(item.assetId) ? 'bg-brandsoft/40 -mx-2 px-2 rounded-xl' : ''}`}>
               <div className="flex items-start gap-3">
+                {canBulk && (
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 mt-0.5"
+                    aria-label={`เลือก ${item.code}`}
+                    checked={selected.has(item.assetId)}
+                    onChange={() => toggleSelect(item.assetId)}
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <Link to={`/assets/${item.assetId}`} className="font-medium text-[13px] hover:text-brand">
                     {item.name}
@@ -328,9 +379,9 @@ export default function InspectionPage() {
 
       <ConfirmDialog
         open={bulkOpen}
-        title={`ยืนยันห้อง ${room || 'ไม่ระบุสถานที่'}`}
-        message={`บันทึกผล "${STATUS[bulkStatus].label}"${bulkNote.trim() && NOTE_REQUIRED.includes(bulkStatus) ? ` (หมายเหตุ: ${bulkNote.trim()})` : ''} ให้ครุภัณฑ์ที่ยังไม่ได้ตรวจ ${nf(roomPending)} ชิ้นในห้องนี้? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
-        confirmLabel={`บันทึก "${STATUS[bulkStatus].label}" ทั้งหมด`}
+        title={bySelection ? `ยืนยันบันทึก ${nf(selected.size)} รายการที่เลือก` : `ยืนยันห้อง ${room || 'ไม่ระบุสถานที่'}`}
+        message={`บันทึกผล "${STATUS[bulkStatus].label}"${bulkNote.trim() && NOTE_REQUIRED.includes(bulkStatus) ? ` (หมายเหตุ: ${bulkNote.trim()})` : ''} ให้ครุภัณฑ์${bySelection ? 'ที่เลือก' : 'ที่ยังไม่ได้ตรวจในห้องนี้'} ${nf(bulkCount)} ชิ้น? ชิ้นที่บันทึกผลไว้แล้วจะไม่ถูกเปลี่ยน (แก้รายชิ้นภายหลังได้ในแท็บ "ตรวจแล้ว")`}
+        confirmLabel={`บันทึก "${STATUS[bulkStatus].label}" ${nf(bulkCount)} ชิ้น`}
         loading={bulking}
         onConfirm={handleBulk}
         onCancel={() => setBulkOpen(false)}

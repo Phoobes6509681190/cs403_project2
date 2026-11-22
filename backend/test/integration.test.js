@@ -288,6 +288,19 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(prog.data.byResult.missing, 4);
   });
 
+  await t.test("ติ๊กเลือกหลายชิ้น: บันทึกเฉพาะที่เลือกและยังไม่ตรวจ", async () => {
+    const round = await api("GET", `/inspections/${ids.round}`, { token: tok.member });
+    const pending = round.data.items.filter((i) => !i.checked).slice(0, 2).map((i) => i.assetId);
+    assert.strictEqual(pending.length, 2);
+    const r = await api("POST", `/inspections/${ids.round}/bulk`, {
+      token: tok.member, body: { assetIds: [...pending, ids.asset13], status: "ok" }
+    });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.updated, 2, "ชิ้นที่ตรวจแล้ว (asset13) ไม่ถูกทับ");
+    const none = await api("POST", `/inspections/${ids.round}/bulk`, { token: tok.member, body: { assetIds: [], status: "ok" } });
+    assert.strictEqual(none.status, 400);
+  });
+
   await t.test("ปิดรอบ: Admin ที่ไม่ได้เปิดรอบต้องใส่เหตุผล", async () => {
     const no = await api("PUT", `/inspections/${ids.round}/close`, { token: tok.admin2 });
     assert.strictEqual(no.status, 400);

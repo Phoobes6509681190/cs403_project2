@@ -112,13 +112,9 @@ export default function CommitteePage() {
     const same = selected.length === active.committee.length && active.committee.every((c) => selected.includes(c.id))
     return (
       <div className="space-y-4 max-w-2xl">
-        <Card className="p-5 space-y-2">
-          <h2 className="font-semibold">มีรอบตรวจนับปี {active.budgetYear} เปิดอยู่</h2>
-          <p className="text-[13px] text-muted">ต้องปิดรอบเดิมก่อนจึงจะเริ่มรอบใหม่ได้</p>
-          <Link to="/inspection"><Btn variant="primary">ไปที่รอบตรวจนับ</Btn></Link>
-        </Card>
+        <Link to="/inspection" className="text-[13px] text-muted hover:text-ink">← กลับไปหน้าตรวจนับ</Link>
         <Card className="p-5 space-y-3">
-          <h3 className="font-semibold">แก้ไขรายชื่อกรรมการ</h3>
+          <h3 className="font-semibold">แก้ไขรายชื่อกรรมการ · รอบปีงบประมาณ {active.budgetYear}</h3>
           <p className="text-[12px] text-muted">
             เพิ่มหรือถอดกรรมการได้ระหว่างรอบ — ผลที่กรรมการบันทึกไว้แล้วยังอยู่ครบ และระบบเก็บชื่อผู้ตรวจของแต่ละชิ้นไว้
           </p>
@@ -136,6 +132,7 @@ export default function CommitteePage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
+      <Link to="/inspection" className="text-[13px] text-muted hover:text-ink">← กลับไปหน้าตรวจนับ</Link>
       <ol className="flex gap-2 text-[12px]">
         {STEPS.map((s, i) => (
           <li key={s} className={`flex-1 rounded-xl px-3 py-2 border ${i === step ? 'border-brand bg-brandsoft text-brandink font-medium' : i < step ? 'border-line text-ink' : 'border-line text-faint'}`}>

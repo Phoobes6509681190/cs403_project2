@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { ConfirmDialog, useToast } from './UI'
-import { TITLES } from '../data/titles'
+import { titleOf } from '../data/titles'
 import { useAuth } from '../hooks/useAuth'
 
 export default function AppLayout() {
@@ -15,8 +15,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const titleKey = Object.keys(TITLES).find((k) => location.pathname.includes(k))
-  const title = TITLES[titleKey] || 'AIMSlog'
+  const title = titleOf(location.pathname)
 
   const toggleTheme = () => {
     const attr = document.documentElement.getAttribute('data-theme')
