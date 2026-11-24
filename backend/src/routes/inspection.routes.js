@@ -4,7 +4,7 @@ const c = require("../controllers/inspection.controller");
 
 const router = express.Router();
 router.use(protect);
-// แต่งตั้งกรรมการ (= เปิดรอบ / แก้รายชื่อ): ผู้ดูแลระบบเท่านั้น — ปิดรอบ: ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่
+// แต่งตั้งกรรมการ (= เปิดรอบ / แก้รายชื่อ): ผู้ดูแลระบบเท่านั้น — ปิดรอบ: ผู้ดูแลระบบ + เจ้าหน้าที่
 const admin = requireRole("admin");
 const editor = requireEditor;
 

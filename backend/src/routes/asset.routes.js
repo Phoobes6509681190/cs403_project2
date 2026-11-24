@@ -7,7 +7,7 @@ const importer = require("../controllers/import.controller");
 const router = express.Router();
 router.use(protect);
 
-// admin = ผู้ดูแลระบบ (ลบ/ถังขยะ), editor = ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่ (เพิ่ม/แก้ไข/นำเข้า)
+// admin = ผู้ดูแลระบบ (ลบ/ถังขยะ), editor = ผู้ดูแลระบบ + เจ้าหน้าที่ (เพิ่ม/แก้ไข/นำเข้า)
 const admin = requireRole("admin");
 const editor = requireEditor;
 

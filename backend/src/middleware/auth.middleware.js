@@ -46,7 +46,7 @@ module.exports = authMiddleware;
 module.exports.authMiddleware = authMiddleware;
 module.exports.csrfProtection = csrfProtection;
 module.exports.requireRole = requireRole;
-// แก้ไขข้อมูลได้ (ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่) — ลบ/จัดการผู้ใช้ยังเป็น requireRole("admin")
+// แก้ไขข้อมูลได้ (ผู้ดูแลระบบ + เจ้าหน้าที่) — ลบ/จัดการผู้ใช้ยังเป็น requireRole("admin")
 module.exports.requireEditor = requireRole("admin", "staff");
 // บัญชีที่ต้องเปลี่ยนรหัสก่อน (รหัสชั่วคราวจาก Admin/สคริปต์กู้รหัส) เรียกได้เฉพาะ /api/auth/*
 // (ดูตัวเอง, เปลี่ยนรหัส, ออกจากระบบ) — กันคนที่แอบรู้รหัสชั่วคราวเข้าไปใช้งานต่อ
