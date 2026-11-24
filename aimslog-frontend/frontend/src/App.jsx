@@ -51,7 +51,7 @@ export default function App() {
             <Route path="/assets" element={<AssetListPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
 
-            {/* ผู้ดูแลระบบ + ผู้ใช้/เจ้าหน้าที่ (ดู RoleRoute.jsx) */}
+            {/* ผู้ดูแลระบบ + เจ้าหน้าที่ (ดู RoleRoute.jsx) */}
             <Route element={<RoleRoute allow={['admin', 'staff']} />}>
               <Route path="/assets/import" element={<AssetImportPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />
