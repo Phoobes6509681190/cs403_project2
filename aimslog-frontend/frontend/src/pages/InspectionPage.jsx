@@ -123,8 +123,8 @@ export default function InspectionPage() {
       .filter((i) => !needle || [i.code, i.name, i.room, i.owner].some((v) => v?.toLowerCase().includes(needle)))
   }, [items, tab, debouncedQ])
 
-  // ติ๊กเลือกได้เฉพาะกรรมการ ในแท็บ "ยังไม่ตรวจ" ของรอบที่เปิดอยู่
-  const canBulk = inspection?.status === 'open' && inspection?.isCommittee && tab === 'pending'
+  // ติ๊กเลือกได้เฉพาะคนที่บันทึกผลได้ (ผู้ดูแลระบบ / เจ้าหน้าที่ที่เป็นกรรมการ) ในแท็บ "ยังไม่ตรวจ"
+  const canBulk = inspection?.status === 'open' && inspection?.canInspect && tab === 'pending'
   const allShownSelected = filtered.length > 0 && filtered.every((i) => selected.has(i.assetId))
   const toggleSelect = (assetId) =>
     setSelected((prev) => {
@@ -155,10 +155,9 @@ export default function InspectionPage() {
     )
   }
 
-  const mine = inspection.scope === 'mine'
-  // ผู้ใช้ทั่วไปนับเฉพาะของตัวเอง, กรรมการใช้ตัวเลขรวมจาก polling
-  const total = mine ? items.length : progress?.total ?? items.length
-  const checked = mine ? items.filter((i) => i.checked).length : progress?.checked ?? items.filter((i) => i.checked).length
+  // ตัวเลขรวมจาก polling ทุก 3 วินาที
+  const total = progress?.total ?? items.length
+  const checked = progress?.checked ?? items.filter((i) => i.checked).length
   const MAX_SHOW = 100
 
   return (
@@ -195,9 +194,6 @@ export default function InspectionPage() {
         </div>
         <div className="mt-4">
           <ProgressBar value={checked} max={total} label={`ตรวจแล้ว ${nf(checked)} จาก ${nf(total)} รายการ`} />
-          {!mine && progress?.selfChecked > 0 && (
-            <p className="text-[11px] text-faint mt-1">ผู้ถือครองยืนยันเอง {nf(progress.selfChecked)} รายการ</p>
-          )}
         </div>
       </Card>
 
@@ -235,14 +231,12 @@ export default function InspectionPage() {
               </button>
             ))}
           </div>
-          {!mine && (
-            <select value={room} onChange={(e) => setRoom(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
+          <select value={room} onChange={(e) => setRoom(e.target.value)} className="rounded-xl border border-line bg-surface px-3 py-2 text-[13px]">
               <option value="">ทุกห้อง ({nf(rooms.length)})</option>
               {rooms.map((r) => (
                 <option key={r} value={r}>{r || 'ไม่ระบุสถานที่'}</option>
               ))}
             </select>
-          )}
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -324,11 +318,11 @@ export default function InspectionPage() {
                   </p>
                   {item.checked && (
                     <p className="text-[11px] text-muted">
-                      ตรวจโดย {item.checkedBy} {item.method === 'self' && '(ผู้ถือครอง)'} · {formatDateTimeTH(item.checkedAt)}
+                      ตรวจโดย {item.checkedBy} · {formatDateTimeTH(item.checkedAt)}
                     </p>
                   )}
                 </div>
-                {isOpen && inspection.isCommittee && (
+                {isOpen && inspection.canInspect && (
                   <Link to={`/assets/${item.assetId}?edit=1`} className="text-[12px] text-muted hover:text-brand hover:underline whitespace-nowrap">
                     แก้ข้อมูล
                   </Link>
@@ -367,7 +361,7 @@ export default function InspectionPage() {
           <EmptyState
             message={
               q ? 'ไม่พบรายการที่ค้นหา'
-                : tab === 'pending' ? (items.length ? 'ตรวจนับครบทุกรายการแล้ว' : 'ไม่มีครุภัณฑ์ที่คุณถือครองในรอบนี้')
+                : tab === 'pending' ? (items.length ? 'ตรวจนับครบทุกรายการแล้ว' : 'ไม่มีครุภัณฑ์ในรอบนี้')
                 : 'ยังไม่มีรายการที่ตรวจแล้ว'
             }
           />

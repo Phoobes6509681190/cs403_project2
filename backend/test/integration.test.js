@@ -72,7 +72,7 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
   const hash = await bcrypt.hash(PASS, 10);
   await User.create([
     { username: "admin", name: "เจ้าหน้าที่พัสดุ", role: "admin", password: hash },
-    { username: "member", name: "กรรมการ ก", role: "user", password: hash },
+    { username: "member", name: "กรรมการ ก", role: "staff", password: hash },
     { username: "holder", name: "อ.ผู้ถือครอง", role: "user", password: hash },
     { username: "other", name: "บุคลากรอื่น", role: "user", password: hash },
     { username: "admin2", name: "Admin สำรอง", role: "admin", password: hash }
@@ -224,6 +224,19 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(r.data.holderUser, ids.holder);
   });
 
+  await t.test("บันทึกกิจกรรมแบบสรุป: นำเข้าหลายชิ้นรวมเป็นแถวเดียว", async () => {
+    const d = await api("GET", "/activity?action=import", { token: tok.admin });
+    assert.ok(d.data.total > 1, "แบบทีละรายการมีหลายแถว");
+    const g = await api("GET", "/activity?action=import&group=1", { token: tok.admin });
+    assert.strictEqual(g.status, 200);
+    assert.strictEqual(g.data.grouped, true);
+    const sum = g.data.items.reduce((n, x) => n + x.count, 0);
+    assert.strictEqual(sum, d.data.total, "ผลรวมของกลุ่มเท่ากับจำนวนรายการ");
+    assert.ok(g.data.items.length < d.data.total);
+    assert.ok(g.data.items[0].by && g.data.items[0].day && g.data.items[0].last);
+    assert.strictEqual((await api("GET", "/activity?group=1", { token: tok.member })).status, 403);
+  });
+
   await t.test("ตรวจนับ: เปิดรอบ (ไม่รวมตัดโอน), เปิดซ้ำได้ 409", async () => {
     const r = await api("POST", "/inspections", { token: tok.admin, body: { budgetYear: 2569, committee: [{ userId: ids.member }] } });
     assert.strictEqual(r.status, 201);
@@ -236,19 +249,30 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(prog.data.checked, 0);
   });
 
-  await t.test("สิทธิ์ตรวจ: Admin ที่ไม่ได้เป็นกรรมการ/คนอื่นได้ 403, ผู้ถือครองเห็นเฉพาะของตัวเอง", async () => {
-    const adm = await api("POST", `/inspections/${ids.round}/items`, { token: tok.admin, body: { assetId: ids.asset13, status: "ok" } });
-    assert.strictEqual(adm.status, 403);
+  await t.test("สิทธิ์ตรวจ: ผู้ใช้ปกติตรวจไม่ได้ (รวมของที่ตัวเองถือ), ผู้ดูแลระบบตรวจได้", async () => {
     const oth = await api("POST", `/inspections/${ids.round}/items`, { token: tok.other, body: { assetId: ids.asset13, status: "ok" } });
     assert.strictEqual(oth.status, 403);
 
     const mine = await api("GET", `/inspections/${ids.round}`, { token: tok.holder });
-    assert.strictEqual(mine.data.scope, "mine");
-    assert.deepStrictEqual(mine.data.items.map((i) => i.assetId), [ids.held]);
-
+    assert.strictEqual(mine.data.scope, "none");
+    assert.strictEqual(mine.data.items.length, 0);
+    assert.strictEqual(mine.data.canInspect, false);
     const self = await api("POST", `/inspections/${ids.round}/items`, { token: tok.holder, body: { assetId: ids.held, status: "ok" } });
-    assert.strictEqual(self.status, 200);
-    assert.strictEqual(self.data.item.method, "self");
+    assert.strictEqual(self.status, 403, "ผู้ถือครองตรวจของตัวเองไม่ได้แล้ว");
+    const bulk = await api("POST", `/inspections/${ids.round}/bulk`, { token: tok.holder, body: { assetIds: [ids.held], status: "ok" } });
+    assert.strictEqual(bulk.status, 403);
+
+    const adm = await api("POST", `/inspections/${ids.round}/items`, { token: tok.admin, body: { assetId: ids.held, status: "ok" } });
+    assert.strictEqual(adm.status, 200, "ผู้ดูแลระบบตรวจได้แม้ไม่ได้ถูกแต่งตั้ง");
+    assert.strictEqual(adm.data.item.method, "committee");
+  });
+
+  await t.test("แต่งตั้งกรรมการได้เฉพาะเจ้าหน้าที่/ผู้ดูแลระบบ", async () => {
+    const r = await api("POST", `/inspections/${ids.round}/committee`, { token: tok.admin, body: { members: [ids.holder] } });
+    assert.strictEqual(r.status, 400, "ผู้ใช้ปกติเป็นกรรมการไม่ได้");
+    const ok = await api("POST", `/inspections/${ids.round}/committee`, { token: tok.admin, body: { members: [ids.member, ids.holder] } });
+    assert.strictEqual(ok.status, 200);
+    assert.deepStrictEqual(ok.data.committee.map((c) => c.id), [ids.member]);
   });
 
   await t.test("กรรมการบันทึกผล: สถานะครุภัณฑ์เปลี่ยน + ประวัติ, จำหน่ายแล้ว/หาไม่พบต้องมีหมายเหตุ", async () => {
@@ -262,12 +286,10 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     assert.strictEqual(bad.status, 400, "จำหน่ายแล้วต้องมีหมายเหตุ");
   });
 
-  await t.test("กรรมการเติมข้อมูลที่ขาดได้ระหว่างรอบ (เฉพาะช่องรายละเอียด)", async () => {
-    const r = await api("PUT", `/assets/${ids.asset13}`, { token: tok.member, body: { brand: "DELL", price: 1, code: "แก้ไม่ได้" } });
+  await t.test("เจ้าหน้าที่ (กรรมการ) เติมข้อมูลได้ระหว่างรอบ, ผู้ใช้ปกติแก้ไม่ได้", async () => {
+    const r = await api("PUT", `/assets/${ids.asset13}`, { token: tok.member, body: { brand: "DELL" } });
     assert.strictEqual(r.status, 200);
     assert.strictEqual(r.data.brand, "DELL");
-    assert.notStrictEqual(r.data.code, "แก้ไม่ได้");
-    assert.notStrictEqual(r.data.price, 1);
     const no = await api("PUT", `/assets/${ids.asset13}`, { token: tok.other, body: { brand: "X" } });
     assert.strictEqual(no.status, 403);
   });
@@ -284,7 +306,7 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
 
     const prog = await api("GET", `/inspections/${ids.round}/progress`, { token: tok.admin });
     assert.strictEqual(prog.data.checked, 6);
-    assert.strictEqual(prog.data.selfChecked, 1);
+    assert.strictEqual(prog.data.selfChecked, 0);
     assert.strictEqual(prog.data.byResult.missing, 4);
   });
 
@@ -312,7 +334,7 @@ test("integration: API + MongoDB", { timeout: 10 * 60 * 1000 }, async (t) => {
     const asOwner = await api("GET", `/inspections/${ids.round}`, { token: tok.admin });
     assert.strictEqual(asOwner.data.closeNeedsReason, false);
     assert.strictEqual(asOwner.data.createdBy.name, "เจ้าหน้าที่พัสดุ");
-    assert.strictEqual((await api("PUT", `/inspections/${ids.round}/close`, { token: tok.member })).status, 403);
+    assert.strictEqual((await api("PUT", `/inspections/${ids.round}/close`, { token: tok.other })).status, 403);
   });
 
   await t.test("ปิดรอบ: บันทึกผลต่อไม่ได้ (409)", async () => {

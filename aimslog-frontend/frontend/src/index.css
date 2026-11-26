@@ -86,6 +86,37 @@ body {
 .scroll-x {
   overflow-x: auto;
 }
+/* ตารางยาว: จำกัดความสูงไว้ในจอ ให้แถบเลื่อนแนวนอนอยู่ในจอเสมอ (ไม่ต้องเลื่อนลงล่างสุดก่อน — feedback UAT)
+   และหัวตารางติดด้านบนตอนเลื่อนลง */
+.table-scroll {
+  overflow: auto;
+  max-height: max(360px, calc(100vh - 240px));
+  overscroll-behavior: contain;
+}
+.table-scroll thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--line);
+}
+.table-scroll table {
+  border-collapse: separate; /* sticky + collapse ใน Chrome ทำให้มีช่องโปร่งระหว่างแถวหัวตาราง */
+  border-spacing: 0;
+}
+.table-scroll tr.border-b > * {
+  border-bottom: 1px solid var(--line); /* เส้นแบ่งแถว (แบบ separate ต้องวาดที่ cell) */
+}
+.table-scroll tbody tr.border-b:last-child > * {
+  border-bottom: 0;
+}
+.table-scroll thead th {
+  background: var(--surface); /* พื้นหลังที่ตัว th — thead แบบ sticky ไม่วาดพื้นหลังให้ทุกเบราว์เซอร์ */
+}
+@media print {
+  .table-scroll { max-height: none; overflow: visible; }
+  .table-scroll thead { position: static; box-shadow: none; }
+}
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

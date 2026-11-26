@@ -64,7 +64,7 @@ export default function LoginLogsPage() {
         {state === 'error' && <ErrorState onRetry={load} message="โหลดประวัติไม่สำเร็จ" />}
         {state === 'ready' && data.items.length === 0 && <EmptyState message="ไม่มีประวัติ" />}
         {state === 'ready' && data.items.length > 0 && (
-          <div className="scroll-x">
+          <div className="table-scroll">
             <table className="w-full min-w-[720px] text-[13px]">
               <thead>
                 <tr className="text-[12px] text-muted border-b border-line">

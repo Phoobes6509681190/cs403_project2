@@ -39,12 +39,10 @@ async function inspectionDto(inspection, user, { withItems = true } = {}) {
   const committee = isCommittee(inspection, user);
   const viewAll = canViewAll(inspection, user);
 
-  // กรรมการ/admin เห็นทุกชิ้น — ผู้ใช้ทั่วไปเห็นเฉพาะชิ้นที่ตัวเองถือครอง (self-check)
+  // ผู้ดูแลระบบ/เจ้าหน้าที่เห็นทุกชิ้น — ผู้ใช้ปกติไม่เห็นรายการตรวจ
   let items = [];
-  if (withItems) {
-    const filter = { inspection: inspection._id };
-    if (!viewAll) filter.holderUser = user.userId;
-    items = await InspectionItem.find(filter).sort({ "snapshot.room": 1, "snapshot.code": 1 }).lean();
+  if (withItems && viewAll) {
+    items = await InspectionItem.find({ inspection: inspection._id }).sort({ "snapshot.room": 1, "snapshot.code": 1 }).lean();
   }
 
   return {
@@ -61,8 +59,9 @@ async function inspectionDto(inspection, user, { withItems = true } = {}) {
     closeNeedsReason: !isOwner,
     committee: committeeUsers.map((u) => ({ id: String(u._id), name: u.name, username: u.username })),
     isCommittee: committee,
-    // all = เห็นทุกชิ้น, mine = เฉพาะของที่ถือครอง
-    scope: viewAll ? "all" : "mine",
+    // บันทึกผลได้ไหม (ผู้ดูแลระบบ หรือ เจ้าหน้าที่ที่เป็นกรรมการ)
+    canInspect: canInspectItem(inspection, null, user),
+    scope: viewAll ? "all" : "none",
     results: INSPECT_RESULTS,
     noteRequired: NOTE_REQUIRED,
     items: items.map((it) => itemDto(it, inspection, user))
@@ -79,9 +78,10 @@ async function loadInspection(req, res) {
   return inspection;
 }
 
+// กรรมการต้องเป็นเจ้าหน้าที่หรือผู้ดูแลระบบ (ผู้ใช้ปกติแต่งตั้งไม่ได้)
 async function validCommittee(ids) {
   const uniq = [...new Set((ids || []).map(String))].filter(isId);
-  const users = await User.find({ _id: { $in: uniq } }, { _id: 1 }).lean();
+  const users = await User.find({ _id: { $in: uniq }, role: { $in: ["admin", "staff"] }, active: { $ne: false } }, { _id: 1 }).lean();
   return users.map((u) => u._id);
 }
 
@@ -200,7 +200,7 @@ exports.submitItem = async (req, res) => {
     item.checkedBy = req.user.userId;
     item.checkedByName = req.user.name || req.user.username;
     item.checkedAt = now;
-    item.method = isCommittee(inspection, req.user) ? "committee" : "self";
+    item.method = "committee";
     await item.save();
 
     // อัปเดตสถานะจริงของครุภัณฑ์ + วันที่ตรวจล่าสุด และบันทึกประวัติถ้าสถานะเปลี่ยน
@@ -291,7 +291,7 @@ exports.bulkRoom = async (req, res) => {
     const inspection = await loadInspection(req, res);
     if (!inspection) return;
     if (inspection.status !== "open") return fail(res, 409, "รอบตรวจนับนี้ปิดแล้ว");
-    if (!isCommittee(inspection, req.user)) return fail(res, 403, "เฉพาะกรรมการที่ได้รับแต่งตั้งในรอบนี้");
+    if (!canInspectItem(inspection, null, req.user)) return fail(res, 403, "เฉพาะผู้ดูแลระบบ หรือเจ้าหน้าที่ที่เป็นกรรมการรอบนี้");
     // เลือกได้ 2 แบบ: ทั้งห้อง (room) หรือติ๊กเลือกหลายชิ้น (assetIds)
     const { room, assetIds, status = "ok" } = req.body || {};
     const byIds = Array.isArray(assetIds);
