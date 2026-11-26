@@ -273,7 +273,7 @@ export default function AssetListPage() {
 
         {state === 'ready' && (
           <>
-            <div className="scroll-x">
+            <div className="table-scroll">
               {/* คอลัมน์เรียงตามไฟล์ Excel ของคณะ + ผู้ถือครอง */}
               <table className="w-full min-w-[1350px] text-[13px]">
                 <thead>

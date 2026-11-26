@@ -5,7 +5,7 @@ const { toHistoryDto } = require("../services/assetDto");
 
 const ACTIONS = ["create", "update", "delete", "restore", "import", "inspect"];
 
-// GET /api/activity?action=&by=&q=&from=&to=&page=1&perPage=50 (ผู้ดูแลระบบ)
+// GET /api/activity?action=&by=&q=&from=&to=&group=1&page=1&perPage=50 (ผู้ดูแลระบบ)
 // บันทึกกิจกรรมรวมทุกครุภัณฑ์ — ใครทำอะไร (เพิ่ม/แก้ไข/ลบ/กู้คืน/นำเข้า/ตรวจ) เมื่อไหร่
 exports.list = async (req, res) => {
   try {
@@ -22,6 +22,43 @@ exports.list = async (req, res) => {
       const rx = new RegExp(escapeRegex(String(req.query.q).trim()), "i");
       const ids = await Asset.find({ $or: [{ assetCode: rx }, { name: rx }] }, { _id: 1 }).limit(2000).lean();
       filter.asset = { $in: ids.map((a) => a._id) };
+    }
+
+    // group=1 (ค่าเริ่มต้นของหน้าเว็บ): สรุปรวม "ใคร ทำอะไร วันไหน กี่ชิ้น ล่าสุดเมื่อไหร่"
+    // นำเข้าครั้งเดียวอาจเป็นหมื่นแถว — ไม่ต้องไล่ดูทีละรายการ (feedback UAT)
+    if (req.query.group === "1") {
+      const [out] = await AssetHistory.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: {
+              by: "$changedByName",
+              action: "$action",
+              day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Bangkok" } }
+            },
+            count: { $sum: 1 },
+            first: { $min: "$createdAt" },
+            last: { $max: "$createdAt" }
+          }
+        },
+        { $sort: { last: -1 } },
+        { $facet: { rows: [{ $skip: (page - 1) * perPage }, { $limit: perPage }], total: [{ $count: "n" }] } }
+      ]);
+      return res.json({
+        success: true,
+        grouped: true,
+        total: out.total[0]?.n || 0,
+        page,
+        perPage,
+        items: out.rows.map((g) => ({
+          by: g._id.by || "",
+          action: g._id.action,
+          day: g._id.day,
+          count: g.count,
+          first: g.first,
+          last: g.last
+        }))
+      });
     }
 
     const [rows, total] = await Promise.all([

@@ -46,7 +46,10 @@ export default function CommitteePage() {
 
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase()
-    return users.filter((u) => !n || [u.name, u.username, u.position].some((v) => v?.toLowerCase().includes(n)))
+    // กรรมการต้องเป็นเจ้าหน้าที่หรือผู้ดูแลระบบ — ผู้ใช้ปกติ (อาจารย์) ไม่อยู่ในรายชื่อ
+    return users
+      .filter((u) => u.role === 'staff' || u.role === 'admin')
+      .filter((u) => !n || [u.name, u.username, u.position].some((v) => v?.toLowerCase().includes(n)))
   }, [users, q])
 
   const toggle = (id) => setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))

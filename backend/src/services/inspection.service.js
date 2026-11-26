@@ -12,13 +12,14 @@ const getOpenInspection = () => Inspection.findOne({ status: "open" }).sort({ cr
 const isCommittee = (inspection, user) =>
   inspection.committee.some((id) => String(id) === String(user?.userId));
 
-// เห็นรายการทั้งหมดของรอบ: กรรมการ หรือ Admin (ดูความคืบหน้าอย่างเดียว)
-const canViewAll = (inspection, user) => ["admin", "staff"].includes(user?.role) || isCommittee(inspection, user);
+// เห็นรายการของรอบ: ผู้ดูแลระบบ + เจ้าหน้าที่ — ผู้ใช้ปกติ (อาจารย์) ไม่เกี่ยวกับการตรวจนับ
+const canViewAll = (inspection, user) => ["admin", "staff"].includes(user?.role);
 
-// ตรวจชิ้นนี้ได้ไหม: กรรมการรอบนี้ / ผู้ถือครองที่ผูกบัญชีไว้ (self-check)
+// บันทึกผลตรวจได้ไหม (ตาม feedback UAT รอบ 2: ผู้ใช้ปกติตรวจของตัวเองไม่ได้แล้ว)
+//   ผู้ดูแลระบบ: ได้เสมอ (ทำได้ทุกอย่าง) · เจ้าหน้าที่: เฉพาะที่ถูกแต่งตั้งเป็นกรรมการรอบนี้ · ผู้ใช้ปกติ: ไม่ได้
 const canInspectItem = (inspection, item, user) =>
   inspection.status === "open" &&
-  (isCommittee(inspection, user) || (item?.holderUser && String(item.holderUser) === String(user?.userId)));
+  (user?.role === "admin" || (user?.role === "staff" && isCommittee(inspection, user)));
 
 async function progressOf(inspectionId) {
   const rows = await InspectionItem.aggregate([

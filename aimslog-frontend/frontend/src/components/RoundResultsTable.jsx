@@ -98,7 +98,7 @@ export default function RoundResultsTable({ inspection, items }) {
       </div>
 
       {rows.length ? (
-        <div className="scroll-x">
+        <div className="table-scroll">
           <table className="w-full min-w-[1100px] text-[13px]">
             <thead>
               <tr className="text-[12px] text-muted border-b border-line">

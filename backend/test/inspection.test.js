@@ -4,26 +4,31 @@ const { isCommittee, canViewAll, canInspectItem } = require("../src/services/ins
 
 const round = { status: "open", committee: ["c1", "c2"] };
 const admin = { userId: "a1", role: "admin" };
-const member = { userId: "c1", role: "user" };
+const member = { userId: "c1", role: "staff" };
+const staff = { userId: "s1", role: "staff" };
 const holder = { userId: "h1", role: "user" };
-const other = { userId: "x1", role: "user" };
+const userInCommittee = { userId: "c2", role: "user" };
 const item = { holderUser: "h1" };
 
-test("Admin ดูได้ทั้งหมดแต่ตรวจไม่ได้ ถ้าไม่ได้ถูกแต่งตั้ง (คนซื้อกับคนตรวจต้องเป็นคนละคน)", () => {
+test("ผู้ดูแลระบบตรวจได้เสมอ (ทำได้ทุกอย่าง) แม้ไม่ได้ถูกแต่งตั้ง", () => {
   assert.strictEqual(canViewAll(round, admin), true);
   assert.strictEqual(isCommittee(round, admin), false);
-  assert.strictEqual(canInspectItem(round, item, admin), false);
-  assert.strictEqual(canInspectItem({ ...round, committee: ["a1"] }, item, admin), true);
+  assert.strictEqual(canInspectItem(round, item, admin), true);
 });
 
-test("กรรมการตรวจได้ทุกชิ้น, ผู้ถือครองตรวจได้เฉพาะของตัวเอง, คนอื่นไม่ได้", () => {
+test("เจ้าหน้าที่ตรวจได้เฉพาะเมื่อเป็นกรรมการรอบนี้", () => {
   assert.strictEqual(canInspectItem(round, item, member), true);
-  assert.strictEqual(canInspectItem(round, item, holder), true);
-  assert.strictEqual(canInspectItem(round, { holderUser: "zz" }, holder), false);
-  assert.strictEqual(canInspectItem(round, item, other), false);
+  assert.strictEqual(canInspectItem(round, item, staff), false);
+  assert.strictEqual(canViewAll(round, staff), true);
+});
+
+test("ผู้ใช้ปกติตรวจไม่ได้ ทั้งของที่ถือครองเอง และแม้ชื่ออยู่ในกรรมการ", () => {
+  assert.strictEqual(canInspectItem(round, item, holder), false);
+  assert.strictEqual(canInspectItem(round, item, userInCommittee), false);
   assert.strictEqual(canViewAll(round, holder), false);
 });
 
 test("รอบที่ปิดแล้วตรวจไม่ได้", () => {
   assert.strictEqual(canInspectItem({ ...round, status: "closed" }, item, member), false);
+  assert.strictEqual(canInspectItem({ ...round, status: "closed" }, item, admin), false);
 });

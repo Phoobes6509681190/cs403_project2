@@ -55,6 +55,9 @@ export default function App() {
             <Route element={<RoleRoute allow={['admin', 'staff']} />}>
               <Route path="/assets/import" element={<AssetImportPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />
+              {/* ตรวจนับ: ผู้ใช้ปกติไม่เกี่ยว (feedback UAT รอบ 2) */}
+              <Route path="/inspection" element={<InspectionPage />} />
+              <Route path="/inspection/:id" element={<InspectionPage />} />
             </Route>
             {/* ผู้ดูแลระบบเท่านั้น */}
             <Route element={<RoleRoute allow={['admin']} />}>
@@ -65,8 +68,6 @@ export default function App() {
               <Route path="/activity" element={<ActivityPage />} />
             </Route>
 
-            <Route path="/inspection" element={<InspectionPage />} />
-            <Route path="/inspection/:id" element={<InspectionPage />} />
             <Route path="/reports" element={<ReportPage />} />
             <Route path="/manual" element={<ManualPage />} />
             <Route path="/profile" element={<ProfilePage />} />

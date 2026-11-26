@@ -296,7 +296,7 @@ export default function AssetImportPage() {
             {(missingStatus || missingBudget) && (
               <p className="text-[12px] text-warn mb-2">กรุณาเลือกสถานะ/งบที่ระบบไม่รู้จักให้ครบก่อนนำเข้า</p>
             )}
-            <div className="scroll-x max-h-[560px] overflow-y-auto">
+            <div className="table-scroll">
               <table className="w-full min-w-[1100px] text-[12px]">
                 <thead className="sticky top-0 bg-surface z-10">
                   <tr className="text-muted border-b border-line">

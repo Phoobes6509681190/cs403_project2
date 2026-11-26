@@ -47,7 +47,7 @@ export default function Dashboard() {
         </Link>
       )}
       {inspection?.status === 'open' && (
-        <Link to="/inspection" className="block">
+        <Link to={user?.role === 'user' ? '/reports' : '/inspection'} className="block">
           <Card className="p-4 hover:bg-surface2">
             <ProgressBar
               value={inspection.progress.checked}

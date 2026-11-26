@@ -45,7 +45,7 @@
 | 👤 | ผู้ใช้ที่ login แล้วทุกคน (`admin` / `staff` / `user`) |
 | ✏️ | `admin` ผู้ดูแลระบบ + `staff` เจ้าหน้าที่ — เพิ่ม/แก้ไข/นำเข้า |
 | 🛡️ | เฉพาะ `admin` ผู้ดูแลระบบ — ลบ ถังขยะ ผู้ใช้ แต่งตั้งกรรมการ |
-| 🧾 | ตรวจสิทธิ์ราย "รอบตรวจนับ" — กรรมการที่ได้รับแต่งตั้ง หรือผู้ถือครองของชิ้นนั้น |
+| 🧾 | ตรวจสิทธิ์ราย "รอบตรวจนับ" — ผู้ดูแลระบบ หรือเจ้าหน้าที่ที่ได้รับแต่งตั้งเป็นกรรมการ (ผู้ใช้ปกติบันทึกผลไม่ได้) |
 
 สิทธิ์มี 3 ระดับ: `admin` ผู้ดูแลระบบ · `staff` เจ้าหน้าที่ (แก้ไขได้ ลบไม่ได้) · `user` ผู้ใช้ปกติ (ดูอย่างเดียว)
 บัญชีใหม่เริ่มเป็น `user` — ผู้ดูแลระบบเป็นคนแต่งตั้งสิทธิ์
@@ -111,7 +111,7 @@
 |---|---|
 | `room` | ข้อความ "สถานที่ใช้งาน" (= `location.label`) |
 | `owner` | ชื่อผู้ถือครอง (ข้อความ — อาจารย์ที่ไม่มีบัญชีก็ใส่ได้) |
-| `holderUser` | id บัญชีผู้ถือครอง (ถ้าผูกไว้ → ยืนยันสภาพของตัวเองในรอบตรวจนับได้) |
+| `holderUser` | id บัญชีผู้ถือครอง (ถ้าผูกไว้ — ใช้อ้างอิง/กรองว่าใครถือ) |
 | `budget` | ชื่องบ ได้จากตัวย่อในเลขครุภัณฑ์ผ่านตาราง budgets (ถ้าเลขไม่มีตัวย่อ ใช้ `fundSource`) |
 | `fundSource` | "แหล่งเงิน" จากไฟล์คณะ (ตัดรหัสนำหน้า เช่น `30 - งบ มธ.` → `งบ มธ.`) |
 | `note` | หมายเหตุ (จากคอลัมน์หมายเหตุในไฟล์ หรือจากผลตรวจ จำหน่ายแล้ว/หาไม่พบ) |
@@ -157,7 +157,7 @@
 | 24 | PUT | `/users/:id/password` | 🛡️ | ตั้งรหัสผ่านใหม่ให้ผู้ใช้ |
 | 24a | PUT | `/users/:id/unlock` | 🛡️ | ปลดล็อกบัญชีที่ใส่รหัสผิดเกินกำหนด |
 | 24b | PUT | `/users/:id/mfa-reset` | 🛡️ | ปิด MFA ให้ผู้ใช้ที่ทำมือถือหาย |
-| 24d | GET | `/activity` | 🛡️ | บันทึกกิจกรรมของครุภัณฑ์ทุกชิ้น (`?action=&by=&q=&from=&to=&page=`) |
+| 24d | GET | `/activity` | 🛡️ | บันทึกกิจกรรมของครุภัณฑ์ทุกชิ้น (`?action=&by=&q=&from=&to=&group=1&page=`) |
 | 24c | GET | `/login-logs` | 🛡️ | ประวัติการเข้าสู่ระบบ (`?username=&success=&page=`) |
 | 25 | GET | `/inspections` | 👤 | รายการรอบตรวจนับทั้งหมด |
 | 26 | GET | `/inspections/active` | 👤 | รอบที่เปิดอยู่ (หรือ `null`) |
@@ -292,6 +292,8 @@ Asset + ข้อมูลรอบตรวจนับที่เปิดอ
 #### `GET /activity` 🛡️
 บันทึกกิจกรรมรวมทุกครุภัณฑ์ (ใครทำอะไร เมื่อไหร่) · `?action=create|update|delete|restore|import|inspect&by=&q=&from=YYYY-MM-DD&to=&page=&perPage=`
 `{ total, page, perPage, items: [ { id, action, summary, changes, by, at, asset: { id, code, name } } ] }`
+- `group=1` = สรุปรวม (ค่าเริ่มต้นของหน้าเว็บ) — รวมเป็น ใคร × กิจกรรม × วัน:
+  `{ grouped: true, total, items: [ { by, action, day: "2026-11-26", count, first, last } ] }` (นำเข้าหมื่นชิ้น = 1 แถว)
 
 #### `GET /assets/:id/history` 👤
 ```json
@@ -410,19 +412,20 @@ cd backend && npm run reset-password -- <username>
 {
   "id": "…", "budgetYear": 2569, "status": "open", "createdAt": "…", "closedAt": null,
   "committee": [ { "id": "…", "name": "อ.สมชาย", "username": "somchai" } ],
-  "isCommittee": true, "scope": "all",
+  "isCommittee": true, "canInspect": true, "scope": "all",
   "results": ["ok","broken","unneeded","transferred","missing"], "noteRequired": ["transferred","missing"],
   "items": [ { "id": "…", "assetId": "…", "code": "…", "name": "…", "room": "…", "owner": "",
                "status": null, "checked": false, "checkedBy": "", "checkedAt": null,
                "method": null, "note": "", "canInspect": true } ]
 }
 ```
-- `scope: "all"` = กรรมการ/Admin เห็นทุกชิ้น · `"mine"` = ผู้ใช้ทั่วไปเห็นเฉพาะชิ้นที่ตัวเองถือครอง
-- `method`: `committee` = กรรมการตรวจ · `self` = ผู้ถือครองยืนยันเอง
+- `scope: "all"` = ผู้ดูแลระบบ/เจ้าหน้าที่เห็นทุกชิ้น · `"none"` = ผู้ใช้ปกติ (ไม่เห็นรายการตรวจ)
+- `canInspect` = บันทึกผลได้ไหม: ผู้ดูแลระบบได้เสมอ, เจ้าหน้าที่เฉพาะที่เป็นกรรมการรอบนี้, ผู้ใช้ปกติไม่ได้
+- `method`: `committee` (ข้อมูลเก่าอาจมี `self` = ผู้ถือครองยืนยันเอง ซึ่งเลิกใช้แล้ว)
 
 #### `GET /inspections/:id/progress` 👤
 ```json
-{ "total": 164, "checked": 120, "selfChecked": 5, "percent": 73,
+{ "total": 164, "checked": 120, "selfChecked": 0, "percent": 73,
   "byResult": { "ok": 110, "broken": 6, "missing": 4 } }
 ```
 หน้าเว็บเรียกทุก 3 วินาที (polling) แทน WebSocket — ง่ายกว่าและเพียงพอสำหรับงานนี้
@@ -434,9 +437,9 @@ cd backend && npm run reset-password -- <username>
 - `status`: `ok` `broken` `unneeded` `transferred` `missing` — `transferred` (จำหน่ายแล้ว) และ `missing` (หาไม่พบ) **ต้องมี `note`** ไม่งั้น `400`
 - 1 ชิ้นนับ 1 ครั้งต่อรอบ — ส่งซ้ำ = **แก้ผล** (ไม่ได้นับเพิ่ม)
 - อัปเดตสถานะครุภัณฑ์ + วันที่ตรวจล่าสุด และบันทึกประวัติถ้าสถานะเปลี่ยน
-- `403` ไม่ใช่กรรมการ/ผู้ถือครอง · `409` รอบปิดแล้ว
+- `403` ผู้ใช้ปกติ / เจ้าหน้าที่ที่ไม่ได้เป็นกรรมการ · `409` รอบปิดแล้ว
 
-#### `POST /inspections/:id/bulk` 🧾 (เฉพาะกรรมการ)
+#### `POST /inspections/:id/bulk` 🧾
 ```json
 { "room": "บร.2 ชั้น 1 ห้อง 107", "status": "ok" }
 { "assetIds": ["…", "…"], "status": "missing", "note": "ห้องรื้อปรับปรุง" }

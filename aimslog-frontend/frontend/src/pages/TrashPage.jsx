@@ -93,7 +93,7 @@ export default function TrashPage() {
         {state === 'error' && <ErrorState onRetry={load} message="โหลดถังขยะไม่สำเร็จ" />}
         {state === 'ready' && items.length === 0 && <EmptyState message="ถังขยะว่าง" />}
         {state === 'ready' && items.length > 0 && (
-          <div className="scroll-x">
+          <div className="table-scroll">
             <table className="w-full min-w-[760px] text-[13px]">
               <thead>
                 <tr className="text-[12px] text-muted border-b border-line">
